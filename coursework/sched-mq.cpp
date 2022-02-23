@@ -24,6 +24,14 @@ public:
     const char* name() const override { return "mq"; }
 
     /**
+     * Run-queuese for realtime, interactive, normal, daemon:
+     */
+    private: List<SchedulingEntity *> rqRealtime;
+    private: List<SchedulingEntity *> rqInteractive;
+    private: List<SchedulingEntity *> rqNormal;
+    private: List<SchedulingEntity *> rqDaemon;
+
+    /**
      * Called during scheduler initialisation.
      */
     void init()
@@ -38,6 +46,28 @@ public:
     void add_to_runqueue(SchedulingEntity& entity) override
     {
         // TODO: Implement me!
+
+        // disable interrupts before modifying runqueue:
+        UniqueIRQLock l;
+
+        //based on the entity's priority, enqueue into appropriate runqueue:
+        switch(entity.priority()) {
+            case SchedulingEntityPriority::REALTIME:
+                rqRealtime.enqueue(&entity);
+                break;
+            case SchedulingEntityPriority::INTERACTIVE:
+                rqInteractive.enqueue(&entity);
+                break;
+            case SchedulingEntityPriority::NORMAL:
+                rqNormal.enqueue(&entity);
+                break;
+            case SchedulingEntityPriority::DAEMON:
+                rqDaemon.enqueue(&entity);
+                break;
+            default:
+                // do nothing
+                break;
+        } 
     }
 
     /**
