@@ -129,11 +129,61 @@ public:
      * Called every time a scheduling event occurs, to cause the next eligible entity
      * to be chosen.  The next eligible entity might actually be the same entity, if
      * e.g. its timeslice has not expired.
+     *
+     * Only runnable tasks can be scheduled onto a CPU!
+     * For a task in a particular queue to be scheduled, all the higher priority queues must
+     * be EMPTY at the point when the scheduling event occurs.
      */
     SchedulingEntity *pick_next_entity() override
     {
         // TODO: Implement me!
+
+        // disable interrupts before modifying runqueue:
+        UniqueIRQLock l;
+
+//        bool hasFoundRunnableEntity = false;
+
+        // deal with runqueues in order of priority:
+        if (!rqRealtime.empty()) {
+            SchedulingEntity* entityPtr = getEntityFromRunqueue(&rqRealtime);
+            if (entityPtr != NULL) return entityPtr;
+
+        } else if (!rqInteractive.empty()) {
+            SchedulingEntity* entityPtr = getEntityFromRunqueue(&rqInteractive);
+            if (entityPtr != NULL) return entityPtr;
+
+        } else if (!rqNormal.empty()) {
+            SchedulingEntity* entityPtr = getEntityFromRunqueue(&rqNormal);
+            if (entityPtr != NULL) return entityPtr;
+
+        } else if (!rqDaemon.empty()) {
+            SchedulingEntity* entityPtr = getEntityFromRunqueue(&rqDaemon);
+            if (entityPtr != NULL) return entityPtr;
+            
+        } else {
+            syslog.messagef(LogLevel::INFO, "All queues are empty.");
+            return NULL;
+        }
+
     }
+
+    SchedulingEntity *getEntityFromRunqueue(List<SchedulingEntity *> *runqueue) {
+        while(true) {
+            // get entity from start of list:
+            SchedulingEntity* entityPtr = rqRealtime.pop();
+            if (rqRealtime.empty()) {
+                // signal calling function to move on to queue in next highest priority
+                return NULL;
+            } else if (entityPtr->state() == SchedulingEntityState::RUNNABLE) {
+                // found valid next entity to be run
+                return entityPtr;
+            } else {
+                // move entity to end of the list:
+                rqRealtime.enqueue(entityPtr);
+            }
+        }
+    }
+
 };
 
 /* --- DO NOT CHANGE ANYTHING BELOW THIS LINE --- */
