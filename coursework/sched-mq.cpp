@@ -80,7 +80,6 @@ public:
         
         // disable interrupts before modifying runqueue:
         UniqueIRQLock l;
-
         // based on the entity's priority, remove from the appropriate runqueue:
         switch(entity.priority()) {
             case SchedulingEntityPriority::REALTIME:
@@ -144,27 +143,19 @@ public:
 
         // disable interrupts before modifying runqueue:
         UniqueIRQLock l;
-
         // deal with runqueues in order of priority:
         if (!rqRealtime.empty()) {
-//            SchedulingEntity* entityPtr = getEntityFromRunqueue(&rqRealtime);
-//            if (entityPtr != NULL) return entityPtr;
             return getEntityFromRunqueue(&rqRealtime);
-
         } else if (!rqInteractive.empty()) {
             return getEntityFromRunqueue(&rqInteractive);
-            
         } else if (!rqNormal.empty()) {
             return getEntityFromRunqueue(&rqNormal);
-
         } else if (!rqDaemon.empty()) {
             return getEntityFromRunqueue(&rqDaemon);
-
         } else {
             syslog.messagef(LogLevel::INFO, "All queues are empty.");
             return NULL;
         }
-
     }
 
     /**
@@ -173,7 +164,6 @@ public:
      * @return the next scheduling entity in the runqueue.
      */
     static SchedulingEntity *getEntityFromRunqueue(List<SchedulingEntity *> *runqueue) {
-//        if (runqueue->empty()) return NULL; // signal to calling function to move on to queue in next highest priority
         // pop entity from start of list and enqueue it to the end:
         SchedulingEntity* entityPtr = runqueue->pop();
         runqueue->enqueue(entityPtr);
