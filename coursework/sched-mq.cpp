@@ -53,15 +53,19 @@ public:
         switch(entity.priority()) {
             case SchedulingEntityPriority::REALTIME:
                 rqRealtime.enqueue(&entity);
+                syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Realtime runqueue.", entity.name().c_str());
                 break;
             case SchedulingEntityPriority::INTERACTIVE:
                 rqInteractive.enqueue(&entity);
+                syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Interactive runqueue.", entity.name().c_str());
                 break;
             case SchedulingEntityPriority::NORMAL:
                 rqNormal.enqueue(&entity);
+                syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Normal runqueue.", entity.name().c_str());
                 break;
             case SchedulingEntityPriority::DAEMON:
                 rqDaemon.enqueue(&entity);
+                syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Daemon runqueue.", entity.name().c_str());
                 break;
             default:
                 // do nothing
@@ -84,40 +88,40 @@ public:
             case SchedulingEntityPriority::REALTIME:
                 if (rqRealtime.empty()) {
                     //do nothing
-                    syslog.messagef(LogLevel::ERROR, "Realtime runqueue is empty! Entity not removed.");
+                    syslog.messagef(LogLevel::ERROR, "Realtime runqueue is empty! Entity [%s] not removed.", entity.name().c_str());
                 } else {
                     rqRealtime.remove(&entity);
-                    syslog.messagef(LogLevel::INFO, "Entity removed from Realtime runqueue");
+                    syslog.messagef(LogLevel::INFO, "Entity [%s] removed from Realtime runqueue", entity.name().c_str());
                 }
                 break;
 
             case SchedulingEntityPriority::INTERACTIVE:
                 if (rqInteractive.empty()) {
                     //do nothing
-                    syslog.messagef(LogLevel::ERROR, "Interactive runqueue is empty! Entity not removed.");
+                    syslog.messagef(LogLevel::ERROR, "Interactive runqueue is empty! Entity [%s] not removed.", entity.name().c_str());
                 } else {
                     rqInteractive.remove(&entity);
-                    syslog.messagef(LogLevel::INFO, "Entity removed from Interactive runqueue");
+                    syslog.messagef(LogLevel::INFO, "Entity [%s] removed from Interactive runqueue", entity.name().c_str());
                 }
                 break;
 
             case SchedulingEntityPriority::NORMAL:
                 if (rqNormal.empty()) {
                     //do nothing
-                    syslog.messagef(LogLevel::ERROR, "Normal runqueue is empty! Entity not removed.");
+                    syslog.messagef(LogLevel::ERROR, "Normal runqueue is empty! Entity [%s] not removed.", entity.name().c_str());
                 } else {
                     rqNormal.remove(&entity);
-                    syslog.messagef(LogLevel::INFO, "Entity removed from Normal runqueue");
+                    syslog.messagef(LogLevel::INFO, "Entity [%s] removed from Normal runqueue", entity.name().c_str());
                 }
                 break;
 
             case SchedulingEntityPriority::DAEMON:
                 if (rqDaemon.empty()) {
                     //do nothing
-                    syslog.messagef(LogLevel::ERROR, "Daemon runqueue is empty! Entity not removed.");
+                    syslog.messagef(LogLevel::ERROR, "Daemon runqueue is empty! Entity [%s] not removed.", entity.name().c_str());
                 } else {
                     rqDaemon.remove(&entity);
-                    syslog.messagef(LogLevel::INFO, "Entity removed from Daemon runqueue");
+                    syslog.messagef(LogLevel::INFO, "Entity [%s] removed from Daemon runqueue", entity.name().c_str());
                 }
                 break;
             default:
@@ -157,7 +161,9 @@ public:
     }
 
     /**
-     * Gets the first still-runnable entity from the queue and returns it.
+     * Helper function for pick_next_entity().
+     * Pops the first still-runnable entity from the queue and returns it.
+     * Enqueues the to-be-returned entity back to the end of the runqueue
      * @param runqueue is the runqueue that we wish to obtain the scheduling entity from.
      * @return the next scheduling entity in the runqueue.
      */
