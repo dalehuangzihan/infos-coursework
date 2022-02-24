@@ -49,7 +49,6 @@ public:
 
         // disable interrupts before modifying runqueue:
         UniqueIRQLock l;
-
         //based on the entity's priority, enqueue into appropriate runqueue:
         switch(entity.priority()) {
             case SchedulingEntityPriority::REALTIME:
@@ -153,7 +152,6 @@ public:
         } else if (!rqDaemon.empty()) {
             return getEntityFromRunqueue(&rqDaemon);
         } else {
-            syslog.messagef(LogLevel::INFO, "All queues are empty.");
             return NULL;
         }
     }
