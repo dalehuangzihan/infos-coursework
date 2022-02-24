@@ -198,6 +198,7 @@ public:
             } else {
                 // all priority queues in this session are empty; toggle active session to the other session:
                 isAlphaSessionActive = false;
+                syslog.messagef(LogLevel::INFO, "Switching to Beta session");
                 if (!rqRealtimeBeta.empty()) {
                     return getEntityFromRunqueue(&rqRealtimeBeta, &rqRealtimeAlpha);
                 } else if (!rqInteractiveBeta.empty()) {
@@ -223,7 +224,8 @@ public:
                 return getEntityFromRunqueue(&rqDaemonBeta, &rqDaemonAlpha);
             } else {
                 // all priority queues in this session are empty; toggle active session to the other session:
-                isAlphaSessionActive = false;
+                syslog.messagef(LogLevel::INFO, "Switching to Alpha session");
+                isAlphaSessionActive = true;
                 if (!rqRealtimeAlpha.empty()) {
                     return getEntityFromRunqueue(&rqRealtimeAlpha, &rqRealtimeBeta);
                 } else if (!rqInteractiveAlpha.empty()) {
