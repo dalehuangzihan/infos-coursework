@@ -86,36 +86,40 @@ public:
             case SchedulingEntityPriority::REALTIME:
                 if (rqRealtime.empty()) {
                     //do nothing
-                    syslog.messagef(LogLevel::ERROR, "Realtime runqueue is empty! Scheduling entity not removed.");
+                    syslog.messagef(LogLevel::ERROR, "Realtime runqueue is empty! Entity not removed.");
                 } else {
                     rqRealtime.remove(&entity);
+                    syslog.messagef(LogLevel::INFO, "Entity removed from Realtime runqueue");
                 }
                 break;
 
             case SchedulingEntityPriority::INTERACTIVE:
                 if (rqInteractive.empty()) {
                     //do nothing
-                    syslog.messagef(LogLevel::ERROR, "Interactive runqueue is empty! Scheduling entity not removed.");
+                    syslog.messagef(LogLevel::ERROR, "Interactive runqueue is empty! Entity not removed.");
                 } else {
                     rqInteractive.remove(&entity);
+                    syslog.messagef(LogLevel::INFO, "Entity removed from Interactive runqueue");
                 }
                 break;
 
             case SchedulingEntityPriority::NORMAL:
                 if (rqNormal.empty()) {
                     //do nothing
-                    syslog.messagef(LogLevel::ERROR, "Normal runqueue is empty! Scheduling entity not removed.");
+                    syslog.messagef(LogLevel::ERROR, "Normal runqueue is empty! Entity not removed.");
                 } else {
                     rqNormal.remove(&entity);
+                    syslog.messagef(LogLevel::INFO, "Entity removed from Normal runqueue");
                 }
                 break;
 
             case SchedulingEntityPriority::DAEMON:
                 if (rqDaemon.empty()) {
                     //do nothing
-                    syslog.messagef(LogLevel::ERROR, "Daemon runqueue is empty! Scheduling entity not removed.");
+                    syslog.messagef(LogLevel::ERROR, "Daemon runqueue is empty! Entity not removed.");
                 } else {
                     rqDaemon.remove(&entity);
+                    syslog.messagef(LogLevel::INFO, "Entity removed from Daemon runqueue");
                 }
                 break;
             default:
@@ -141,25 +145,21 @@ public:
         // disable interrupts before modifying runqueue:
         UniqueIRQLock l;
 
-//        bool hasFoundRunnableEntity = false;
-
         // deal with runqueues in order of priority:
         if (!rqRealtime.empty()) {
-            SchedulingEntity* entityPtr = getEntityFromRunqueue(&rqRealtime);
-            if (entityPtr != NULL) return entityPtr;
+//            SchedulingEntity* entityPtr = getEntityFromRunqueue(&rqRealtime);
+//            if (entityPtr != NULL) return entityPtr;
+            return getEntityFromRunqueue(&rqRealtime);
 
         } else if (!rqInteractive.empty()) {
-            SchedulingEntity* entityPtr = getEntityFromRunqueue(&rqInteractive);
-            if (entityPtr != NULL) return entityPtr;
-
+            return getEntityFromRunqueue(&rqInteractive);
+            
         } else if (!rqNormal.empty()) {
-            SchedulingEntity* entityPtr = getEntityFromRunqueue(&rqNormal);
-            if (entityPtr != NULL) return entityPtr;
+            return getEntityFromRunqueue(&rqNormal);
 
         } else if (!rqDaemon.empty()) {
-            SchedulingEntity* entityPtr = getEntityFromRunqueue(&rqDaemon);
-            if (entityPtr != NULL) return entityPtr;
-            
+            return getEntityFromRunqueue(&rqDaemon);
+
         } else {
             syslog.messagef(LogLevel::INFO, "All queues are empty.");
             return NULL;
@@ -167,21 +167,17 @@ public:
 
     }
 
-    SchedulingEntity *getEntityFromRunqueue(List<SchedulingEntity *> *runqueue) {
-        while(true) {
-            // get entity from start of list:
-            SchedulingEntity* entityPtr = rqRealtime.pop();
-            if (rqRealtime.empty()) {
-                // signal calling function to move on to queue in next highest priority
-                return NULL;
-            } else if (entityPtr->state() == SchedulingEntityState::RUNNABLE) {
-                // found valid next entity to be run
-                return entityPtr;
-            } else {
-                // move entity to end of the list:
-                rqRealtime.enqueue(entityPtr);
-            }
-        }
+    /**
+     * Gets the first still-runnable entity from the queue and returns it.
+     * @param runqueue is the runqueue that we wish to obtain the scheduling entity from.
+     * @return the next scheduling entity in the runqueue.
+     */
+    static SchedulingEntity *getEntityFromRunqueue(List<SchedulingEntity *> *runqueue) {
+//        if (runqueue->empty()) return NULL; // signal to calling function to move on to queue in next highest priority
+        // pop entity from start of list and enqueue it to the end:
+        SchedulingEntity* entityPtr = runqueue->pop();
+        runqueue->enqueue(entityPtr);
+        return entityPtr;
     }
 
 };
