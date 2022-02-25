@@ -24,14 +24,6 @@ public:
     const char* name() const override { return "mq"; }
 
     /**
-     * Run-queuese for realtime, interactive, normal, daemon:
-     */
-    private: List<SchedulingEntity *> rqRealtime;
-    private: List<SchedulingEntity *> rqInteractive;
-    private: List<SchedulingEntity *> rqNormal;
-    private: List<SchedulingEntity *> rqDaemon;
-
-    /**
      * Called during scheduler initialisation.
      */
     void init()
@@ -45,26 +37,24 @@ public:
      */
     void add_to_runqueue(SchedulingEntity& entity) override
     {
-        // TODO: Implement me!
-
         // disable interrupts before modifying runqueue:
         UniqueIRQLock l;
         //based on the entity's priority, enqueue into appropriate runqueue:
         switch(entity.priority()) {
             case SchedulingEntityPriority::REALTIME:
-                rqRealtime.enqueue(&entity);
+                rq_realtime.enqueue(&entity);
                 syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Realtime runqueue.", entity.name().c_str());
                 break;
             case SchedulingEntityPriority::INTERACTIVE:
-                rqInteractive.enqueue(&entity);
+                rq_interactive.enqueue(&entity);
                 syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Interactive runqueue.", entity.name().c_str());
                 break;
             case SchedulingEntityPriority::NORMAL:
-                rqNormal.enqueue(&entity);
+                rq_normal.enqueue(&entity);
                 syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Normal runqueue.", entity.name().c_str());
                 break;
             case SchedulingEntityPriority::DAEMON:
-                rqDaemon.enqueue(&entity);
+                rq_daemon.enqueue(&entity);
                 syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Daemon runqueue.", entity.name().c_str());
                 break;
             default:
@@ -79,48 +69,46 @@ public:
      */
     void remove_from_runqueue(SchedulingEntity& entity) override
     {
-        // TODO: Implement me!
-        
         // disable interrupts before modifying runqueue:
         UniqueIRQLock l;
         // based on the entity's priority, remove from the appropriate runqueue:
         switch(entity.priority()) {
             case SchedulingEntityPriority::REALTIME:
-                if (rqRealtime.empty()) {
+                if (rq_realtime.empty()) {
                     //do nothing
                     syslog.messagef(LogLevel::ERROR, "Realtime runqueue is empty! Entity [%s] not removed.", entity.name().c_str());
                 } else {
-                    rqRealtime.remove(&entity);
+                    rq_realtime.remove(&entity);
                     syslog.messagef(LogLevel::INFO, "Entity [%s] removed from Realtime runqueue", entity.name().c_str());
                 }
                 break;
 
             case SchedulingEntityPriority::INTERACTIVE:
-                if (rqInteractive.empty()) {
+                if (rq_interactive.empty()) {
                     //do nothing
                     syslog.messagef(LogLevel::ERROR, "Interactive runqueue is empty! Entity [%s] not removed.", entity.name().c_str());
                 } else {
-                    rqInteractive.remove(&entity);
+                    rq_interactive.remove(&entity);
                     syslog.messagef(LogLevel::INFO, "Entity [%s] removed from Interactive runqueue", entity.name().c_str());
                 }
                 break;
 
             case SchedulingEntityPriority::NORMAL:
-                if (rqNormal.empty()) {
+                if (rq_normal.empty()) {
                     //do nothing
                     syslog.messagef(LogLevel::ERROR, "Normal runqueue is empty! Entity [%s] not removed.", entity.name().c_str());
                 } else {
-                    rqNormal.remove(&entity);
+                    rq_normal.remove(&entity);
                     syslog.messagef(LogLevel::INFO, "Entity [%s] removed from Normal runqueue", entity.name().c_str());
                 }
                 break;
 
             case SchedulingEntityPriority::DAEMON:
-                if (rqDaemon.empty()) {
+                if (rq_daemon.empty()) {
                     //do nothing
                     syslog.messagef(LogLevel::ERROR, "Daemon runqueue is empty! Entity [%s] not removed.", entity.name().c_str());
                 } else {
-                    rqDaemon.remove(&entity);
+                    rq_daemon.remove(&entity);
                     syslog.messagef(LogLevel::INFO, "Entity [%s] removed from Daemon runqueue", entity.name().c_str());
                 }
                 break;
@@ -142,23 +130,31 @@ public:
      */
     SchedulingEntity *pick_next_entity() override
     {
-        // TODO: Implement me!
-
         // disable interrupts before modifying runqueue:
         UniqueIRQLock l;
         // deal with runqueues in order of priority:
-        if (!rqRealtime.empty()) {
-            return getEntityFromRunqueue(&rqRealtime);
-        } else if (!rqInteractive.empty()) {
-            return getEntityFromRunqueue(&rqInteractive);
-        } else if (!rqNormal.empty()) {
-            return getEntityFromRunqueue(&rqNormal);
-        } else if (!rqDaemon.empty()) {
-            return getEntityFromRunqueue(&rqDaemon);
+        if (!rq_realtime.empty()) {
+            return get_entity_from_runqueue(&rq_realtime);
+        } else if (!rq_interactive.empty()) {
+            return get_entity_from_runqueue(&rq_interactive);
+        } else if (!rq_normal.empty()) {
+            return get_entity_from_runqueue(&rq_normal);
+        } else if (!rq_daemon.empty()) {
+            return get_entity_from_runqueue(&rq_daemon);
         } else {
             return NULL;
         }
     }
+
+
+private:
+    /**
+     * Run-queuese for realtime, interactive, normal, daemon:
+     */
+    List<SchedulingEntity *> rq_realtime;
+    List<SchedulingEntity *> rq_interactive;
+    List<SchedulingEntity *> rq_normal;
+    List<SchedulingEntity *> rq_daemon;
 
     /**
      * Helper function for pick_next_entity().
@@ -167,7 +163,7 @@ public:
      * @param runqueue is the runqueue that we wish to obtain the scheduling entity from.
      * @return the next scheduling entity in the runqueue.
      */
-    static SchedulingEntity *getEntityFromRunqueue(List<SchedulingEntity *> *runqueue) {
+    static SchedulingEntity *get_entity_from_runqueue(List<SchedulingEntity *> *runqueue) {
         // pop entity from start of list and enqueue it to the end:
         SchedulingEntity* entityPtr = runqueue->pop();
         runqueue->enqueue(entityPtr);
