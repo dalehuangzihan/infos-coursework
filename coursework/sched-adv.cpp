@@ -26,6 +26,7 @@ public:
     private: List<SchedulingEntity *> rq_interactive_A;
     private: List<SchedulingEntity *> rq_normal_A;
     private: List<SchedulingEntity *> rq_daemon_A;
+    private: List<List<SchedulingEntity *> *> session_A_rq_list;
 
     /**
      * Run-queues (Beta session) for realtime, interactive, normal, daemon:
@@ -34,6 +35,7 @@ public:
     private: List<SchedulingEntity *> rq_interactive_B;
     private: List<SchedulingEntity *> rq_normal_B;
     private: List<SchedulingEntity *> rq_daemon_B;
+    private: List<List<SchedulingEntity *> *> session_B_rq_list;
 
     // flag to control which session is active:
     private: bool is_session_A_active = true;
@@ -44,6 +46,15 @@ public:
     void init()
     {
         // TODO: Implement me!
+        session_A_rq_list.enqueue(&rq_realtime_A);
+        session_A_rq_list.enqueue(&rq_interactive_A);
+        session_A_rq_list.enqueue(&rq_normal_A);
+        session_A_rq_list.enqueue(&rq_daemon_A);
+
+        session_B_rq_list.enqueue(&rq_realtime_B);
+        session_B_rq_list.enqueue(&rq_interactive_B);
+        session_B_rq_list.enqueue(&rq_normal_B);
+        session_B_rq_list.enqueue(&rq_daemon_B);
     }
 
     /**
@@ -62,19 +73,23 @@ public:
             // based on the entity's priority, enqueue into appropriate runqueue:
             switch(entity.priority()) {
                 case SchedulingEntityPriority::REALTIME:
-                    rq_realtime_B.enqueue(&entity);
+//                  rq_realtime_B.enqueue(&entity);
+                    session_B_rq_list.at(0)->enqueue(&entity);
                     syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Realtime runqueue.", entity.name().c_str());
                     break;
                 case SchedulingEntityPriority::INTERACTIVE:
-                    rq_interactive_B.enqueue(&entity);
+//                    rq_interactive_B.enqueue(&entity);
+                    session_B_rq_list.at(1)->enqueue(&entity);
                     syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Interactive runqueue.", entity.name().c_str());
                     break;
                 case SchedulingEntityPriority::NORMAL:
-                    rq_normal_B.enqueue(&entity);
+//                    rq_normal_B.enqueue(&entity);
+                    session_B_rq_list.at(2)->enqueue(&entity);
                     syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Normal runqueue.", entity.name().c_str());
                     break;
                 case SchedulingEntityPriority::DAEMON:
-                    rq_daemon_B.enqueue(&entity);
+//                    rq_daemon_B.enqueue(&entity);
+                    session_B_rq_list.at(3)->enqueue(&entity);
                     syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Daemon runqueue.", entity.name().c_str());
                     break;
                 default:
@@ -86,19 +101,23 @@ public:
             // based on the entity's priority, enqueue into appropriate runqueue:
             switch(entity.priority()) {
                 case SchedulingEntityPriority::REALTIME:
-                    rq_realtime_A.enqueue(&entity);
+//                    rq_realtime_A.enqueue(&entity);
+                    session_A_rq_list.at(0)->enqueue(&entity);
                     syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Realtime runqueue.", entity.name().c_str());
                     break;
                 case SchedulingEntityPriority::INTERACTIVE:
-                    rq_interactive_A.enqueue(&entity);
+//                    rq_interactive_A.enqueue(&entity);
+                    session_A_rq_list.at(1)->enqueue(&entity);
                     syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Interactive runqueue.", entity.name().c_str());
                     break;
                 case SchedulingEntityPriority::NORMAL:
-                    rq_normal_A.enqueue(&entity);
+//                    rq_normal_A.enqueue(&entity);
+                    session_A_rq_list.at(2)->enqueue(&entity);
                     syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Normal runqueue.", entity.name().c_str());
                     break;
                 case SchedulingEntityPriority::DAEMON:
-                    rq_daemon_A.enqueue(&entity);
+//                    rq_daemon_A.enqueue(&entity);
+                    session_A_rq_list.at(3)->enqueue(&entity);
                     syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Daemon runqueue.", entity.name().c_str());
                     break;
                 default:
@@ -184,57 +203,56 @@ public:
     {
         // disable interrupts before modifying runqueue:
         UniqueIRQLock l;
-
         // deal with runqueues in order of priority:
         if (is_session_A_active) {
-            if (!rq_realtime_A.empty()) {
-                return getEntityFromRunqueue(rq_realtime_A, rq_realtime_B);
-            } else if (!rq_interactive_A.empty()) {
-                return getEntityFromRunqueue(rq_interactive_A, rq_interactive_B);
-            } else if (!rq_normal_A.empty()) {
-                return getEntityFromRunqueue(rq_normal_A, rq_normal_B);
-            } else if (!rq_daemon_A.empty()) {
-                return getEntityFromRunqueue(rq_daemon_A, rq_daemon_B);
+            if (!session_A_rq_list.at(0)->empty()) {
+                return getEntityFromRunqueue(session_A_rq_list.at(0), session_B_rq_list.at(0));
+            } else if (!session_A_rq_list.at(1)->empty()) {
+                return getEntityFromRunqueue(session_A_rq_list.at(1), session_B_rq_list.at(1));
+            } else if (!session_A_rq_list.at(2)->empty()) {
+                return getEntityFromRunqueue(session_A_rq_list.at(2), session_B_rq_list.at(2));
+            } else if (!session_A_rq_list.at(3)->empty()) {
+                return getEntityFromRunqueue(session_A_rq_list.at(3), session_B_rq_list.at(3));
             } else {
 
                 // all priority queues in this session are empty; toggle active session to the other session:
                 is_session_A_active = false;
                 syslog.messagef(LogLevel::INFO, "Switching to Beta session");
-                if (!rq_realtime_B.empty()) {
-                    return getEntityFromRunqueue(rq_realtime_B, rq_realtime_A);
-                } else if (!rq_interactive_B.empty()) {
-                    return getEntityFromRunqueue(rq_interactive_B, rq_interactive_A);
-                } else if (!rq_normal_B.empty()) {
-                    return getEntityFromRunqueue(rq_normal_B, rq_normal_A);
-                } else if (!rq_daemon_B.empty()) {
-                    return getEntityFromRunqueue(rq_daemon_B, rq_daemon_A);
+                if (!session_B_rq_list.at(0)->empty()) {
+                    return getEntityFromRunqueue(session_B_rq_list.at(0), session_A_rq_list.at(0));
+                } else if (!session_B_rq_list.at(1)->empty()) {
+                    return getEntityFromRunqueue(session_B_rq_list.at(1), session_A_rq_list.at(1));
+                } else if (!session_B_rq_list.at(2)->empty()) {
+                    return getEntityFromRunqueue(session_B_rq_list.at(2), session_A_rq_list.at(2));
+                } else if (!session_B_rq_list.at(3)->empty()) {
+                    return getEntityFromRunqueue(session_B_rq_list.at(3), session_A_rq_list.at(3));
                 } else {
                     // all priority queues in both sessions are empty:
                     return NULL;
                 }
             }
         } else {
-            if (!rq_realtime_B.empty()) {
-                return getEntityFromRunqueue(rq_realtime_B, rq_realtime_A);
-            } else if (!rq_interactive_B.empty()) {
-                return getEntityFromRunqueue(rq_interactive_B, rq_interactive_A);
-            } else if (!rq_normal_B.empty()) {
-                return getEntityFromRunqueue(rq_normal_B, rq_normal_A);
-            } else if (!rq_daemon_B.empty()) {
-                return getEntityFromRunqueue(rq_daemon_B, rq_daemon_A);
+            if (!session_B_rq_list.at(0)->empty()) {
+                return getEntityFromRunqueue(session_B_rq_list.at(0), session_A_rq_list.at(0));
+            } else if (!session_B_rq_list.at(1)->empty()) {
+                return getEntityFromRunqueue(session_B_rq_list.at(1), session_A_rq_list.at(1));
+            } else if (!session_B_rq_list.at(2)->empty()) {
+                return getEntityFromRunqueue(session_B_rq_list.at(2), session_A_rq_list.at(2));
+            } else if (!session_B_rq_list.at(3)->empty()) {
+                return getEntityFromRunqueue(session_B_rq_list.at(3), session_A_rq_list.at(3));
             } else {
 
                 // all priority queues in this session are empty; toggle active session to the other session:
                 syslog.messagef(LogLevel::INFO, "Switching to Alpha session");
                 is_session_A_active = true;
-                if (!rq_realtime_A.empty()) {
-                    return getEntityFromRunqueue(rq_realtime_A, rq_realtime_B);
-                } else if (!rq_interactive_A.empty()) {
-                    return getEntityFromRunqueue(rq_interactive_A, rq_interactive_B);
-                } else if (!rq_normal_A.empty()) {
-                    return getEntityFromRunqueue(rq_normal_A, rq_normal_B);
-                } else if (!rq_daemon_A.empty()) {
-                    return getEntityFromRunqueue(rq_daemon_A, rq_daemon_B);
+                if (!session_A_rq_list.at(0)->empty()) {
+                    return getEntityFromRunqueue(session_A_rq_list.at(0), session_B_rq_list.at(0));
+                } else if (!session_A_rq_list.at(1)->empty()) {
+                    return getEntityFromRunqueue(session_A_rq_list.at(1), session_B_rq_list.at(1));
+                } else if (!session_A_rq_list.at(2)->empty()) {
+                    return getEntityFromRunqueue(session_A_rq_list.at(2), session_B_rq_list.at(2));
+                } else if (!session_A_rq_list.at(3)->empty()) {
+                    return getEntityFromRunqueue(session_A_rq_list.at(3), session_B_rq_list.at(3));
                 } else {
                     // all priority queues in both sessions are empty:
                     return NULL;
@@ -251,11 +269,11 @@ public:
      * @param active_runqueue is the active_runqueue that we wish to obtain the scheduling entity from.
      * @return the next scheduling entity in the active_runqueue.
      */
-    static SchedulingEntity *getEntityFromRunqueue(List<SchedulingEntity *>& active_runqueue, List<SchedulingEntity *>& idle_runqueue) {
+    static SchedulingEntity *getEntityFromRunqueue(List<SchedulingEntity *>* active_runqueue, List<SchedulingEntity *>* idle_runqueue) {
         // pop entity from start of active queue:
-        SchedulingEntity* entityPtr = active_runqueue.pop();
+        SchedulingEntity* entityPtr = active_runqueue->pop();
         // enqueue entity to end of inactive queue:
-        idle_runqueue.enqueue(entityPtr);
+        idle_runqueue->enqueue(entityPtr);
         return entityPtr;
     }
 
