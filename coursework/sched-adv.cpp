@@ -75,7 +75,6 @@ public:
                 } else {
                     rq_realtime_A.remove(&entity);
                     rq_realtime_B.remove(&entity);
-//                    syslog.messagef(LogLevel::INFO, "Entity [%s] removed from Realtime runqueues", entity.name().c_str());
                 }
                 break;
 
@@ -86,7 +85,6 @@ public:
                 } else {
                     rq_interactive_A.remove(&entity);
                     rq_interactive_B.remove(&entity);
-//                    syslog.messagef(LogLevel::INFO, "Entity [%s] removed from Interactive runqueues", entity.name().c_str());
                 }
                 break;
 
@@ -97,7 +95,6 @@ public:
                 } else {
                     rq_normal_A.remove(&entity);
                     rq_normal_B.remove(&entity);
-//                    syslog.messagef(LogLevel::INFO, "Entity [%s] removed from Normal runqueues", entity.name().c_str());
                 }
                 break;
 
@@ -108,7 +105,6 @@ public:
                 } else {
                     rq_daemon_A.remove(&entity);
                     rq_daemon_B.remove(&entity);
-//                    syslog.messagef(LogLevel::INFO, "Entity [%s] removed from Daemon runqueues", entity.name().c_str());
                 }
                 break;
             default:
@@ -170,19 +166,15 @@ private:
         switch(entity.priority()) {
             case SchedulingEntityPriority::REALTIME:
                 idle_session_rq_list.at(0)->enqueue(&entity);
-//                syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Realtime runqueue.", entity.name().c_str());
                 break;
             case SchedulingEntityPriority::INTERACTIVE:
                 idle_session_rq_list.at(1)->enqueue(&entity);
-//                syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Interactive runqueue.", entity.name().c_str());
                 break;
             case SchedulingEntityPriority::NORMAL:
                 idle_session_rq_list.at(2)->enqueue(&entity);
-//                syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Normal runqueue.", entity.name().c_str());
                 break;
             case SchedulingEntityPriority::DAEMON:
                 idle_session_rq_list.at(3)->enqueue(&entity);
-//                syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Daemon runqueue.", entity.name().c_str());
                 break;
             default:
                 // do nothing
@@ -215,7 +207,6 @@ private:
 
             // all priority queues in this session are empty; toggle active session to the other session:
             is_session_A_active = !is_session_A_active;
-//            syslog.message(LogLevel::INFO, "Toggling queue session");
 
             if (!idle_session_rq_list.at(0)->empty()) {
                 return get_entity_from_runqueue(idle_session_rq_list.at(0), active_session_rq_list.at(0));

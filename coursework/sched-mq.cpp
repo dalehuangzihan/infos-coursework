@@ -43,19 +43,15 @@ public:
         switch(entity.priority()) {
             case SchedulingEntityPriority::REALTIME:
                 rq_realtime.enqueue(&entity);
-                syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Realtime runqueue.", entity.name().c_str());
                 break;
             case SchedulingEntityPriority::INTERACTIVE:
                 rq_interactive.enqueue(&entity);
-                syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Interactive runqueue.", entity.name().c_str());
                 break;
             case SchedulingEntityPriority::NORMAL:
                 rq_normal.enqueue(&entity);
-                syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Normal runqueue.", entity.name().c_str());
                 break;
             case SchedulingEntityPriority::DAEMON:
                 rq_daemon.enqueue(&entity);
-                syslog.messagef(LogLevel::INFO, "Entity [%s] enqueued to Daemon runqueue.", entity.name().c_str());
                 break;
             default:
                 // do nothing
@@ -79,7 +75,6 @@ public:
                     syslog.messagef(LogLevel::ERROR, "Realtime runqueue is empty! Entity [%s] not removed.", entity.name().c_str());
                 } else {
                     rq_realtime.remove(&entity);
-                    syslog.messagef(LogLevel::INFO, "Entity [%s] removed from Realtime runqueue", entity.name().c_str());
                 }
                 break;
 
@@ -89,7 +84,6 @@ public:
                     syslog.messagef(LogLevel::ERROR, "Interactive runqueue is empty! Entity [%s] not removed.", entity.name().c_str());
                 } else {
                     rq_interactive.remove(&entity);
-                    syslog.messagef(LogLevel::INFO, "Entity [%s] removed from Interactive runqueue", entity.name().c_str());
                 }
                 break;
 
@@ -99,7 +93,6 @@ public:
                     syslog.messagef(LogLevel::ERROR, "Normal runqueue is empty! Entity [%s] not removed.", entity.name().c_str());
                 } else {
                     rq_normal.remove(&entity);
-                    syslog.messagef(LogLevel::INFO, "Entity [%s] removed from Normal runqueue", entity.name().c_str());
                 }
                 break;
 
@@ -109,7 +102,6 @@ public:
                     syslog.messagef(LogLevel::ERROR, "Daemon runqueue is empty! Entity [%s] not removed.", entity.name().c_str());
                 } else {
                     rq_daemon.remove(&entity);
-                    syslog.messagef(LogLevel::INFO, "Entity [%s] removed from Daemon runqueue", entity.name().c_str());
                 }
                 break;
             default:
