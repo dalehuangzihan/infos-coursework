@@ -24,16 +24,16 @@ public:
      */
     void init()
     {
-        session_A_rq_list.enqueue(&rq_realtime_A);
-        session_A_rq_list.enqueue(&rq_interactive_A);
-        session_A_rq_list.enqueue(&rq_normal_A);
-        session_A_rq_list.enqueue(&rq_daemon_A);
+        session_A_rq_list.append(&rq_realtime_A);
+        session_A_rq_list.append(&rq_interactive_A);
+        session_A_rq_list.append(&rq_normal_A);
+        session_A_rq_list.append(&rq_daemon_A);
         syslog.messagef(LogLevel::IMPORTANT, "Initialised session A runqueues list");
 
-        session_B_rq_list.enqueue(&rq_realtime_B);
-        session_B_rq_list.enqueue(&rq_interactive_B);
-        session_B_rq_list.enqueue(&rq_normal_B);
-        session_B_rq_list.enqueue(&rq_daemon_B);
+        session_B_rq_list.append(&rq_realtime_B);
+        session_B_rq_list.append(&rq_interactive_B);
+        session_B_rq_list.append(&rq_normal_B);
+        session_B_rq_list.append(&rq_daemon_B);
         syslog.messagef(LogLevel::IMPORTANT, "Initialised session B runqueues list");
     }
 
@@ -165,15 +165,19 @@ private:
         // based on the entity's priority, enqueue into appropriate runqueue:
         switch(entity.priority()) {
             case SchedulingEntityPriority::REALTIME:
+                // enqueue to rq_realtime:
                 idle_session_rq_list.at(0)->enqueue(&entity);
                 break;
             case SchedulingEntityPriority::INTERACTIVE:
+                // enqueue to rq_interactive:
                 idle_session_rq_list.at(1)->enqueue(&entity);
                 break;
             case SchedulingEntityPriority::NORMAL:
+                // enqueue to rq_normal:
                 idle_session_rq_list.at(2)->enqueue(&entity);
                 break;
             case SchedulingEntityPriority::DAEMON:
+                // enqueue to rq_daemon:
                 idle_session_rq_list.at(3)->enqueue(&entity);
                 break;
             default:
@@ -196,12 +200,16 @@ private:
                                                                    List<List<SchedulingEntity *> *>& idle_session_rq_list,
                                                                    bool& is_session_A_active) {
         if (!active_session_rq_list.at(0)->empty()) {
+            // inspect active rq_realtime:
             return get_entity_from_runqueue(active_session_rq_list.at(0), idle_session_rq_list.at(0));
         } else if (!active_session_rq_list.at(1)->empty()) {
+            // inspect active rq_interactive:
             return get_entity_from_runqueue(active_session_rq_list.at(1), idle_session_rq_list.at(1));
         } else if (!active_session_rq_list.at(2)->empty()) {
+            // inspect active rq_normal:
             return get_entity_from_runqueue(active_session_rq_list.at(2), idle_session_rq_list.at(2));
         } else if (!active_session_rq_list.at(3)->empty()) {
+            // inspect active rq_daemon:
             return get_entity_from_runqueue(active_session_rq_list.at(3), idle_session_rq_list.at(3));
         } else {
 
@@ -209,12 +217,16 @@ private:
             is_session_A_active = !is_session_A_active;
 
             if (!idle_session_rq_list.at(0)->empty()) {
+                // inspect idle rq_realtime:
                 return get_entity_from_runqueue(idle_session_rq_list.at(0), active_session_rq_list.at(0));
             } else if (!idle_session_rq_list.at(1)->empty()) {
+                // inspect idle rq_interactive:
                 return get_entity_from_runqueue(idle_session_rq_list.at(1), active_session_rq_list.at(1));
             } else if (!idle_session_rq_list.at(2)->empty()) {
+                // inspect idle rq_normal:
                 return get_entity_from_runqueue(idle_session_rq_list.at(2), active_session_rq_list.at(2));
             } else if (!idle_session_rq_list.at(3)->empty()) {
+                // inspect idle rq_daemon:
                 return get_entity_from_runqueue(idle_session_rq_list.at(3), active_session_rq_list.at(3));
             } else {
                 // all priority queues in both sessions are empty:
