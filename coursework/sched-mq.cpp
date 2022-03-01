@@ -128,21 +128,13 @@ public:
         // deal with runqueues in order of priority:
         SchedulingEntity* next_entity;
         if (!rq_realtime.empty()) {
-            next_entity = get_entity_from_runqueue(&rq_realtime);
-            if (next_entity != NULL) return next_entity;    // move on to next highest priority queue if entity is NULL.
-
+            return get_entity_from_runqueue(&rq_realtime);
         } else if (!rq_interactive.empty()) {
-            next_entity = get_entity_from_runqueue(&rq_interactive);
-            if (next_entity != NULL) return next_entity;
-
+            return get_entity_from_runqueue(&rq_interactive);
         } else if (!rq_normal.empty()) {
-            next_entity = get_entity_from_runqueue(&rq_normal);
-            if (next_entity != NULL) return next_entity;
-
+            return get_entity_from_runqueue(&rq_normal);
         } else if (!rq_daemon.empty()) {
-            next_entity = get_entity_from_runqueue(&rq_daemon);
-            if (next_entity != NULL) return next_entity;
-
+            return get_entity_from_runqueue(&rq_daemon);
         } else {
             return NULL;
         }
@@ -173,11 +165,9 @@ private:
             // enqueue entity back to the end of the queue:
             runqueue->enqueue(entityPtr);
             // check if entity has been successfully enqueued:
-            if (runqueue->count() != org_queue_len) {
-                syslog.message(LogLevel::ERROR, "Entity(s) lost from queue when fetching next entity.");
-            }
+            if (runqueue->count() != org_queue_len) syslog.message(LogLevel::ERROR, "Entity(s) lost from queue when fetching next entity.");
         } else {
-            syslog.message(LogLevel::ERROR, "Dequeued Entity is NULL! Entity not re-enqueued.");
+            syslog.message(LogLevel::ERROR, "Dequeued next-Entity is NULL! Entity not re-enqueued to runqueue.");
         }
         return entityPtr;
     }
