@@ -158,14 +158,14 @@ private:
      * @return the next scheduling entity in the runqueue.
      */
     static SchedulingEntity *get_entity_from_runqueue(List<SchedulingEntity *> *runqueue) {
-        unsigned int org_queue_len = runqueue->count();
+        unsigned int org_rq_len = runqueue->count();
         // pop entity from start of queue:
         SchedulingEntity* entityPtr = runqueue->pop();
         if (entityPtr != NULL) {
             // enqueue entity back to the end of the queue:
             runqueue->enqueue(entityPtr);
             // check if entity has been successfully enqueued:
-            if (runqueue->count() != org_queue_len) syslog.message(LogLevel::ERROR, "Entity(s) lost from queue when fetching next entity.");
+            if (runqueue->count() != org_rq_len) syslog.message(LogLevel::ERROR, "Entity(s) lost from queue when fetching next entity.");
         } else {
             syslog.message(LogLevel::ERROR, "Dequeued next-Entity is NULL! Entity not re-enqueued to runqueue.");
         }
