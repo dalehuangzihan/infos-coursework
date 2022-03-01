@@ -158,7 +158,7 @@ private:
     bool is_session_A_active = true;
 
     /**
-     * Helper function for add_to_runqueue.
+     * Helper function for add_to_runqueue().
      * Adds the entity to the appropriate idle runqueue according to level of priority.
      */
     static void add_entity_to_idle_runqueue(List<List<SchedulingEntity *> *>& idle_session_rq_list, SchedulingEntity& entity) {
@@ -243,10 +243,18 @@ private:
      * @return the next scheduling entity in the active_runqueue.
      */
         static SchedulingEntity *get_entity_from_runqueue(List<SchedulingEntity *>* active_runqueue, List<SchedulingEntity *>* idle_runqueue) {
+            unsigned int org_active_rq_len = active_runqueue->count();
+            unsigned int org_idle_rq_len = idle_runqueue->count();
             // pop entity from start of active queue:
             SchedulingEntity* entityPtr = active_runqueue->pop();
-            // enqueue entity to end of inactive queue:
-            idle_runqueue->enqueue(entityPtr);
+            if (entityPtr != NULL) {
+                // enqueue entity to end of idle queue:
+                idle_runqueue->enqueue(entityPtr);
+                if (active_runqueue->count() != org_active_rq_len - 1) syslog.message(LogLevel::ERROR, "Active runqueue has wrong length after fetching next entity.");
+                if (idle_runqueue->count() != org_idle_rq_len + 1) syslog.message(LogLevel::ERROR, "Idle runqueue has wrong length after fetching next entity.");
+            } else {
+                syslog.message(LogLevel::ERROR, "Dequeued next-Entity is NULL! Entity not re-enqueued.");
+            }
             return entityPtr;
         }
 
