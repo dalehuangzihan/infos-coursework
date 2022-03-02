@@ -265,7 +265,7 @@ private:
                     syslog.messagef(LogLevel::ERROR, "Active runqueue has wrong length after fetching next entity [%s].", entityPtr->name().c_str());
                 }
                 if (idle_runqueue->count() != org_idle_rq_len + 1) {
-                    syslog.messagef(LogLevel::ERROR, "Idle runqueue has wrong length after fetching next entity.", entityPtr->name().c_str());
+                    syslog.messagef(LogLevel::ERROR, "Idle runqueue has wrong length after fetching next entity [%s].", entityPtr->name().c_str());
                 }
             } else {
                 syslog.message(LogLevel::ERROR, "Dequeued next-Entity is NULL! Entity not re-enqueued.");
