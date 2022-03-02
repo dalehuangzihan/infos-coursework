@@ -47,6 +47,12 @@ public:
     {
         // disable interrupts before modifying runqueue:
         UniqueIRQLock l;
+
+        if (&entity == NULL) {
+            syslog.message(LogLevel::ERROR, "Cannot add NULL entity to runqueues!");
+            return;
+        }
+
         if (is_session_A_active) {
             // add new tasks to Beta session runqueues:
             add_entity_to_idle_runqueue(session_B_rq_list, entity);
@@ -64,6 +70,11 @@ public:
     {
         // disable interrupts before modifying runqueue:
         UniqueIRQLock l;
+
+        if (&entity == NULL) {
+            syslog.message(LogLevel::ERROR, "Cannot remove NULL entity from runqueues!");
+            return;
+        }
 
         // searches runqueues on both Alpha and Beta sessions and removes entity from them.
         // based on the entity's priority, remove from the appropriate runqueue:
@@ -250,8 +261,12 @@ private:
             if (entityPtr != NULL) {
                 // enqueue entity to end of idle queue:
                 idle_runqueue->enqueue(entityPtr);
-                if (active_runqueue->count() != org_active_rq_len - 1) syslog.message(LogLevel::ERROR, "Active runqueue has wrong length after fetching next entity.");
-                if (idle_runqueue->count() != org_idle_rq_len + 1) syslog.message(LogLevel::ERROR, "Idle runqueue has wrong length after fetching next entity.");
+                if (active_runqueue->count() != org_active_rq_len - 1) {
+                    syslog.messagef(LogLevel::ERROR, "Active runqueue has wrong length after fetching next entity [%s].", entityPtr->name().c_str());
+                }
+                if (idle_runqueue->count() != org_idle_rq_len + 1) {
+                    syslog.messagef(LogLevel::ERROR, "Idle runqueue has wrong length after fetching next entity.", entityPtr->name().c_str());
+                }
             } else {
                 syslog.message(LogLevel::ERROR, "Dequeued next-Entity is NULL! Entity not re-enqueued.");
             }

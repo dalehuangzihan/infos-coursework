@@ -28,7 +28,6 @@ public:
      */
     void init()
     {
-        // TODO: Implement me!
         // Not required for this implementation.
     }
 
@@ -40,6 +39,12 @@ public:
     {
         // disable interrupts before modifying runqueue:
         UniqueIRQLock l;
+
+        if (&entity == NULL) {
+            syslog.message(LogLevel::ERROR, "Cannot add NULL entity to runqueues!");
+            return;
+        }
+
         //based on the entity's priority, enqueue into appropriate runqueue:
         switch(entity.priority()) {
             case SchedulingEntityPriority::REALTIME:
@@ -68,6 +73,12 @@ public:
     {
         // disable interrupts before modifying runqueue:
         UniqueIRQLock l;
+
+        if (&entity == NULL) {
+            syslog.message(LogLevel::ERROR, "Cannot remove NULL entity from runqueues!");
+            return;
+        }
+
         // based on the entity's priority, remove from the appropriate runqueue:
         switch(entity.priority()) {
             case SchedulingEntityPriority::REALTIME:
@@ -165,7 +176,9 @@ private:
             // enqueue entity back to the end of the queue:
             runqueue->enqueue(entityPtr);
             // check if entity has been successfully enqueued:
-            if (runqueue->count() != org_rq_len) syslog.message(LogLevel::ERROR, "Entity(s) lost from queue when fetching next entity.");
+            if (runqueue->count() != org_rq_len) {
+                syslog.messagef(LogLevel::ERROR, "Entity(s) lost from queue when fetching next entity [%s].", entityPtr->name().c_str());
+            }
         } else {
             syslog.message(LogLevel::ERROR, "Dequeued next-Entity is NULL! Entity not re-enqueued to runqueue.");
         }
