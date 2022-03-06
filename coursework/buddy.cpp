@@ -31,6 +31,32 @@ private:
 	PageDescriptor *buddy_of(PageDescriptor *pgd, int order)
 	{
         // TODO: Implement me!
+
+        // check that order is in range:
+        if (order >= MAX_ORDER) {
+            syslog.messagef(LogLevel::ERROR, "Order %s is out of range of MAX_ORDER %s", order, MAX_ORDER);
+            return NULL;
+        }
+        uint64_t order_block_size = 1u << order;
+
+        // obtain page frame number from pointer to page descriptor:
+        pfn_t pfn = sys.mm().pgalloc().pgd_to_pfn(pgd);
+        // check if page descriptor is aligned within the order block:
+        if (pfn % order_block_size != 0) {
+            syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within order!");
+            return NULL;
+        } 
+
+        uint64_t buddy_pfn;
+        if (pfn % (order_block_size << 1)) {
+            // is aligned with block of size = order + 1; buddy is the next block of size = order:
+            buddy_pfn = pfn + order_block_size;
+        } else {
+            // buddy is the previous block of size = order:
+            buddy_pfn = pfn - order_block_size;
+        }
+
+        return sys.mm().pgalloc().pfn_to_pgd(buddy_pfn);
 	}
 
 	/**
