@@ -252,6 +252,42 @@ public:
     void free_pages(PageDescriptor *pgd, int order) override
     {
         // TODO: Implement me!
+
+        // check that pgd is properly aligned in order = 'order':
+        pfn_t pfn = sys.mm().pgalloc().pgd_to_pfn(pgd);
+        if (pfn % order != 0) {
+            syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within source order! Split operation aborted.");
+        }
+
+        // insert block back into the free spaces linked list of order = 'order':
+        insert_block(pgd, order);
+
+        PageDescriptor* buddy_ptr = buddy_of(pgd, order);
+        PageDescriptor* ll_head_ptr = _free_areas[order];
+
+        // Check if the buddy in the current order is free; if so, merge and move to order + 1 and perform the same checks, and so on...
+        for (int curr_order = order; curr_order <= MAX_ORDER;) {
+            PageDescriptor* ll_ptr = ll_head_ptr;
+
+            // move down linked list to check if it contains the buddy of the given pgd:
+            if (ll_ptr != buddy_ptr and ll_ptr != NULL) {
+                // do not increment curr_order here; works like a while loop
+                ll_ptr = ll_ptr->next_free;
+
+            } else if (ll_ptr == NULL) {
+                syslog.messagef(LogLevel::INFO, "Buddy of block pgd=%s in order [%s] is not free; not merging blocks.", pgd, order);
+                break;
+
+            } else {
+                // has found buddy in free space linked list of order = 'order'
+                PageDescriptor** merged_block_ptr = merge_block(&pgd, order);
+
+                // prep parameters to repeat same checks but for next order up:
+                curr_order++;    // increment counter to current_order + 1;
+                buddy_ptr = buddy_of(*merged_block_ptr, curr_order);
+                ll_head_ptr = _free_areas[curr_order];
+            }
+        }
     }
 
     /**
@@ -280,6 +316,7 @@ public:
 	 *
 	 * Note that you cannot assume all memory is free initially, so you must only insert
 	 * pages into the free lists when the function insert page range is called.
+	 * i.e. so during init(), you should not insert all memory into the free lists.
 	 */
 	bool init(PageDescriptor *page_descriptors, uint64_t nr_page_descriptors) override
 	{
