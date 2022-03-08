@@ -64,25 +64,27 @@ private:
      * @param pgd
      */
     void remove_block(PageDescriptor* pgd) {
-//        PageDescriptor* ll_head_ptr = _free_areas[order];
-//        if (ll_head_ptr == NULL) {
-//            syslog.messagef(LogLevel::ERROR, "No free blocks exist for order [%s]; block not removed.", order);
-//        } else {
-//            // search for pgd in the order's free space linked list:
-//            PageDescriptor* ll_ptr = ll_head_ptr;
-//            while(ll_ptr != pgd and ll_ptr->next_free != NULL) {
-//                // stops when we reach the pgd node or the tail node of the linked list
-//                ll_ptr = ll_ptr->next_free;
-//            }
-//
-//            // get the pointers for the nodes directly before and directly after our pgd node in the linked list:
-//            PageDescriptor* ll_splice_LHS_ptr = pgd->prev_free;
-//            PageDescriptor* ll_splice_RHS_ptr = pgd->next_free;
-//
-//            // stitch the splice nodes together
-//            ll_splice_LHS_ptr->next_free = ll_splice_RHS_ptr;
-//            if (ll_splice_RHS_ptr != NULL) ll_splice_RHS_ptr->prev_free = ll_splice_LHS_ptr;    // check if we're at the tail node of the linked list
-//        }
+        /*
+        PageDescriptor* ll_head_ptr = _free_areas[order];
+        if (ll_head_ptr == NULL) {
+            syslog.messagef(LogLevel::ERROR, "No free blocks exist for order [%s]; block not removed.", order);
+        } else {
+            // search for pgd in the order's free space linked list:
+            PageDescriptor* ll_ptr = ll_head_ptr;
+            while(ll_ptr != pgd and ll_ptr->next_free != NULL) {
+                // stops when we reach the pgd node or the tail node of the linked list
+                ll_ptr = ll_ptr->next_free;
+            }
+
+            // get the pointers for the nodes directly before and directly after our pgd node in the linked list:
+            PageDescriptor* ll_splice_LHS_ptr = pgd->prev_free;
+            PageDescriptor* ll_splice_RHS_ptr = pgd->next_free;
+
+            // stitch the splice nodes together
+            ll_splice_LHS_ptr->next_free = ll_splice_RHS_ptr;
+            if (ll_splice_RHS_ptr != NULL) ll_splice_RHS_ptr->prev_free = ll_splice_LHS_ptr;    // check if we're at the tail node of the linked list
+        }
+        */
 
         // remove node from linked list (re-link linked list):
         if (pgd->prev_free != NULL) (pgd->prev_free)->next_free = pgd->next_free;
@@ -143,7 +145,7 @@ private:
         // check that the block pointer is properly aligned:
         pfn_t pfn = sys.mm().pgalloc().pgd_to_pfn(*block_pointer);
         if (pfn % source_order != 0) {
-            syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within source order!");
+            syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within source order! Split operation aborted.");
             return NULL;
         }
 
@@ -179,7 +181,7 @@ private:
         // check alignment of pgd in source_order:
         pfn_t pfn = sys.mm().pgalloc().pgd_to_pfn(*block_pointer);
         if (pfn % source_order != 0) {
-            syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within source order!");
+            syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within source order! Merge operation aborted.");
             return NULL;
         }
 
@@ -213,6 +215,33 @@ public:
 	PageDescriptor *allocate_pages(int order) override
 	{
         // TODO: Implement me!
+
+        // find smallest order which is >= 'order' that has an empty block for allocation:
+        bool has_found_free_space = false;
+        int alloc_starting_order = order;
+        for (int i = order; i <= MAX_ORDER; i ++) {
+            if (_free_areas[i] != NULL) {
+                // this order contains free memory space available for allocation:
+                alloc_starting_order = i;
+                has_found_free_space = true;
+                break;
+            }
+        }
+        if (!has_found_free_space) {
+            syslog.messagef(LogLevel::ERROR, "Could not find free memory space; block of order size [%s] not allocated", order);
+        }
+
+        // get free block at the START of the linked list for chosen order:
+        // (we choose to allocate from the head of the linked list cuz it's easier)
+        PageDescriptor* alloc_block = _free_areas[alloc_starting_order];
+        // split the starting alloc block down to obtain the correctly-sized block (of size 'order') to allocate
+        for (int j = alloc_starting_order; j > order; j--) {
+            alloc_block = split_block(&alloc_block, j);
+        }
+        // remove alloc_block from free spaces linked list cuz it's already allocated.
+        remove_block(alloc_block);
+
+        return alloc_block;
 	}
 
     /**
@@ -258,6 +287,12 @@ public:
         syslog.messagef(LogLevel::INFO, "Initialising Buddy Allocator; pd = [%s]; nr_pd = [%s]", page_descriptors, nr_page_descriptors);
         _pgd_base = page_descriptors;
         _nr_pgds = nr_page_descriptors;
+
+        // initialise pointers in _free_areas to NULL;
+        for(auto & _free_area : _free_areas) {
+            _free_area = NULL;
+        }
+
         return true;
 	}
 
