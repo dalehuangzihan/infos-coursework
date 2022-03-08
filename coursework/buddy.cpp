@@ -262,13 +262,12 @@ public:
         // insert block back into the free spaces linked list of order = 'order':
         insert_block(pgd, order);
 
+        // Check if the buddy in the current order is free; if so, merge and move to order + 1 and perform the
+        // same checks and operations, and so on... until we reach MAX_ORDER
         PageDescriptor* buddy_ptr = buddy_of(pgd, order);
-        PageDescriptor* ll_head_ptr = _free_areas[order];
-
-        // Check if the buddy in the current order is free; if so, merge and move to order + 1 and perform the same checks, and so on...
-        for (int curr_order = order; curr_order <= MAX_ORDER;) {
-            PageDescriptor* ll_ptr = ll_head_ptr;
-
+        PageDescriptor* ll_ptr = _free_areas[order];    // initially points to the head of linked list
+        int curr_order = order;
+        while (curr_order <= MAX_ORDER) {
             // move down linked list to check if it contains the buddy of the given pgd:
             if (ll_ptr != buddy_ptr and ll_ptr != NULL) {
                 // do not increment curr_order here; works like a while loop
@@ -281,11 +280,10 @@ public:
             } else {
                 // has found buddy in free space linked list of order = 'order'
                 PageDescriptor** merged_block_ptr = merge_block(&pgd, order);
-
                 // prep parameters to repeat same checks but for next order up:
-                curr_order++;    // increment counter to current_order + 1;
-                buddy_ptr = buddy_of(*merged_block_ptr, curr_order);
-                ll_head_ptr = _free_areas[curr_order];
+                curr_order++;                                                       // increment counter to current_order + 1;
+                buddy_ptr = buddy_of(*merged_block_ptr, curr_order);     // reassign to find new buddy
+                ll_ptr = _free_areas[curr_order];                                   // reassign to point to head of next linked list
             }
         }
     }
