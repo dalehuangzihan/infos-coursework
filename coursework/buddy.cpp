@@ -33,7 +33,7 @@ private:
         // TODO: Implement me!
 
         // check that order is in range:
-        if (order >= MAX_ORDER) {
+        if (order > MAX_ORDER) {
             syslog.messagef(LogLevel::ERROR, "Order %s is out of range of MAX_ORDER %s", order, MAX_ORDER);
             return NULL;
         }
@@ -45,7 +45,7 @@ private:
         if (pfn % order_block_size != 0) {
             syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within order!");
             return NULL;
-        } 
+        }
 
         uint64_t buddy_pfn;
         if (pfn % (order_block_size << 1)) {
@@ -70,6 +70,48 @@ private:
 	PageDescriptor *split_block(PageDescriptor **block_pointer, int source_order)
 	{
         // TODO: Implement me!
+
+        // check that the block pointer is properly aligned:
+        pfn_t pfn = sys.mm().pgalloc().pgd_to_pfn(*block_pointer);
+        if (pfn % source_order != 0) {
+            syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within source order!");
+            return NULL;
+        }
+
+        if (source_order == 0) {
+            syslog.message(LogLevel::INFO, "Cannot split blocks of order zero; returning original block");
+            return *block_pointer;
+        }
+
+        // Find the buddy of the given *block_pointer in the lower order
+        PageDescriptor *new_block_LHS = *block_pointer;
+        PageDescriptor *new_block_RHS = buddy_of(new_block_LHS, source_order - 1);    // should give the order=source_order-1 block on the RHS of new_block_LHS
+
+        // Remove source_order block from the source order free mem linked list:
+        // (must be done before adding blocks to order=source_order-1 ll cuz otherwise original prev_free and next_free will be lost)
+        PageDescriptor* source_order_ll_splice_LHS = ((PageDescriptor*) *block_pointer)->prev_free;
+        PageDescriptor* source_order_ll_splice_RHS = ((PageDescriptor*) *block_pointer)->next_free;
+        source_order_ll_splice_LHS->next_free = source_order_ll_splice_RHS;
+        source_order_ll_splice_RHS->prev_free = source_order_ll_splice_LHS;
+
+        // Insert new lower order blocks to the lower order free mem linked list:
+        PageDescriptor* lower_order_pgd_ll_ptr = _free_areas[source_order - 1]; // linked list pointer starts from head.
+        while(lower_order_pgd_ll_ptr->next_free < *block_pointer and lower_order_pgd_ll_ptr->next_free != NULL) {
+            // moves ptr along the linked list towards the tail until it reaches the pgd address just before *block_pointer.
+            // the next pgd in the list is larger than our new blocks pgd or is == NULL (reached tail of LL).
+            // we sort the linked lists by pgd address value
+            lower_order_pgd_ll_ptr = lower_order_pgd_ll_ptr->next_free;
+        }
+        PageDescriptor* lower_order_ll_splice_LHS = lower_order_pgd_ll_ptr;
+        PageDescriptor* lower_order_ll_splice_RHS = lower_order_pgd_ll_ptr->next_free;
+        lower_order_ll_splice_LHS->next_free = new_block_LHS;
+        new_block_LHS->prev_free = lower_order_ll_splice_LHS;
+        new_block_LHS->next_free = new_block_RHS;
+        new_block_RHS->prev_free = new_block_LHS;
+        new_block_RHS->next_free = lower_order_ll_splice_RHS;
+        lower_order_ll_splice_RHS->prev_free = new_block_RHS;
+
+        return new_block_LHS;
 	}
 
 	/**
@@ -81,6 +123,60 @@ private:
 	PageDescriptor **merge_block(PageDescriptor **block_pointer, int source_order)
 	{
         // TODO: Implement me!
+
+        // check alignment of pgd in source_order:
+        pfn_t pfn = sys.mm().pgalloc().pgd_to_pfn(*block_pointer);
+        if (pfn % source_order != 0) {
+            syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within source order!");
+            return NULL;
+        }
+
+        if (source_order == MAX_ORDER) {
+            syslog.message(LogLevel::INFO, "Cannot merge blocks of order MAX_ORDER; returning original slot");
+            return block_pointer;
+        }
+
+        // find buddy of given block in order=source_order:
+        // don't know whether the buddy is on the left or right of the original pgd pointer
+        PageDescriptor* source_order_buddy = buddy_of(*block_pointer, source_order);
+        PageDescriptor* new_higher_order_block;
+
+        // remove source_order blocks from source_order linked list:
+        PageDescriptor* source_order_ll_splice_LHS;
+        PageDescriptor* source_order_ll_splice_RHS;
+        if (*block_pointer < source_order_buddy) {
+            new_higher_order_block = *block_pointer;
+            source_order_ll_splice_LHS = ((PageDescriptor*) block_pointer)->prev_free;
+            source_order_ll_splice_RHS = source_order_buddy->next_free;
+            ((PageDescriptor*) block_pointer)->next_free = NULL;
+            source_order_buddy->prev_free = NULL;
+
+        } else {
+            new_higher_order_block = source_order_buddy;
+            source_order_ll_splice_LHS = source_order_buddy->prev_free;
+            source_order_ll_splice_RHS = ((PageDescriptor*) block_pointer)->next_free;
+            source_order_buddy->next_free = NULL;
+            ((PageDescriptor*) block_pointer)->prev_free = NULL;
+        }
+        source_order_ll_splice_LHS->next_free = source_order_ll_splice_RHS;
+        source_order_ll_splice_RHS->prev_free = source_order_ll_splice_LHS;
+
+        // insert new higher order blocks into higher order linked list:
+        PageDescriptor* higher_order_pgd_ll_ptr = _free_areas[source_order + 1];
+        while(higher_order_pgd_ll_ptr->next_free < *block_pointer and higher_order_pgd_ll_ptr->next_free != NULL) {
+            // moves ptr along the linked list towards the tail until it reaches the pgd address just before *block_pointer.
+            // the next pgd in the list is larger than our new blocks pgd or is == NULL (reached tail of LL).
+            // we sort the linked lists by pgd address value
+            higher_order_pgd_ll_ptr = source_order_ll_splice_LHS->next_free;
+        }
+        PageDescriptor* higher_order_ll_splice_LHS = higher_order_pgd_ll_ptr;
+        PageDescriptor* higher_order_ll_splice_RHS = higher_order_pgd_ll_ptr->next_free;
+        higher_order_ll_splice_LHS->next_free = new_higher_order_block;
+        new_higher_order_block->prev_free = higher_order_ll_splice_LHS;
+        new_higher_order_block->next_free = higher_order_ll_splice_RHS;
+        higher_order_ll_splice_RHS->prev_free = new_higher_order_block;
+        
+        return &new_higher_order_block;
 	}
 
 public:
@@ -128,10 +224,17 @@ public:
 	/**
 	 * Initialises the allocation algorithm.
 	 * @return Returns TRUE if the algorithm was successfully initialised, FALSE otherwise.
+	 *
+	 * Note that you cannot assume all memory is free initially, so you must only insert
+	 * pages into the free lists when the function insert page range is called.
 	 */
 	bool init(PageDescriptor *page_descriptors, uint64_t nr_page_descriptors) override
 	{
         // TODO: Implement me!
+        syslog.messagef(LogLevel::INFO, "Initialising Buddy Allocator; pd = [%s]; nr_pd = [%s]", page_descriptors, nr_page_descriptors);
+        _pgd_base = page_descriptors;
+        _nr_pgds = nr_page_descriptors;
+        return true;
 	}
 
 	/**
@@ -166,7 +269,9 @@ public:
 
 
 private:
-	PageDescriptor *_free_areas[MAX_ORDER+1];
+	PageDescriptor *_free_areas[MAX_ORDER+1];   // +1 to account also for order=0
+    PageDescriptor *_pgd_base;
+    uint64_t _nr_pgds;
 };
 
 /* --- DO NOT CHANGE ANYTHING BELOW THIS LINE --- */
