@@ -157,7 +157,7 @@ private:
         PageDescriptor *new_block_RHS = buddy_of(new_block_LHS, source_order - 1);    // should give the order=source_order-1 block on the RHS of new_block_LHS
 
         // Remove source_order block from the source order free mem linked list:
-        remove_block(*block_pointer, source_order);
+        remove_block(*block_pointer);
 
         // Insert new lower order blocks to the lower order free mem linked list:
         insert_block(new_block_LHS, source_order - 1);
@@ -193,8 +193,8 @@ private:
         PageDescriptor* source_order_buddy = buddy_of(*block_pointer, source_order);
 
         // remove source_order blocks from source_order linked list:
-        remove_block(*block_pointer, source_order);
-        remove_block(source_order_buddy, source_order);
+        remove_block(*block_pointer);
+        remove_block(source_order_buddy);
 
         // insert new higher order blocks into higher order linked list:
         PageDescriptor* new_higher_order_block = (*block_pointer < source_order_buddy) ? *block_pointer : source_order_buddy;
