@@ -63,11 +63,17 @@ private:
      * Removes pgd block of size order from the free memory linked list.
      * @param pgd
      */
-    void remove_block(PageDescriptor* pgd) {
-        /*
-        PageDescriptor* ll_head_ptr = _free_areas[order];
+    void remove_block(PageDescriptor* pgd, int order) {
+
+        PageDescriptor *ll_head_ptr = _free_areas[order];
         if (ll_head_ptr == NULL) {
             syslog.messagef(LogLevel::ERROR, "No free blocks exist for order [%s]; block not removed.", order);
+        } else if (ll_head_ptr == pgd) {
+            // the pgd to be removed is the head of the linked list
+            _free_areas[order] = pgd->next_free;
+            (pgd->next_free)->prev_free = NULL;
+            pgd->next_free = NULL;
+
         } else {
             // search for pgd in the order's free space linked list:
             PageDescriptor* ll_ptr = ll_head_ptr;
@@ -83,15 +89,24 @@ private:
             // stitch the splice nodes together
             ll_splice_LHS_ptr->next_free = ll_splice_RHS_ptr;
             if (ll_splice_RHS_ptr != NULL) ll_splice_RHS_ptr->prev_free = ll_splice_LHS_ptr;    // check if we're at the tail node of the linked list
-        }
-        */
 
-        // remove node from linked list (re-link linked list):
-        if (pgd->prev_free != NULL) (pgd->prev_free)->next_free = pgd->next_free;
-        if (pgd->next_free != NULL) (pgd->next_free)->prev_free = pgd->prev_free;
-        // reset next_free and prev_free pointers in removed node:
-        pgd->next_free = NULL;
-        pgd->prev_free = NULL;
+            // clean up the next_free and prev_free pointers in pgd:
+            pgd->prev_free = NULL;
+            pgd->next_free = NULL;
+        }
+
+//        // remove node from linked list (re-link linked list):
+//        if (pgd->prev_free != NULL) {
+//            (pgd->prev_free)->next_free = pgd->next_free;
+//        } else {
+//            // this pgd is the head of the linked list
+//            // config the head ptr to now point to pgd.next_free
+//            _free_areas[order] = pgd->next_free;
+//        }
+//        if (pgd->next_free != NULL) (pgd->next_free)->prev_free = pgd->prev_free;
+//        // reset next_free and prev_free pointers in removed node:
+//        pgd->next_free = NULL;
+//        pgd->prev_free = NULL;
     }
 
     /**
@@ -159,7 +174,7 @@ private:
         PageDescriptor *new_block_RHS = buddy_of(new_block_LHS, source_order - 1);    // should give the order=source_order-1 block on the RHS of new_block_LHS
 
         // Remove source_order block from the source order free mem linked list:
-        remove_block(*block_pointer);
+        remove_block(*block_pointer, source_order);
 
         // Insert new lower order blocks to the lower order free mem linked list:
         insert_block(new_block_LHS, source_order - 1);
@@ -195,8 +210,8 @@ private:
         PageDescriptor* source_order_buddy = buddy_of(*block_pointer, source_order);
 
         // remove source_order blocks from source_order linked list:
-        remove_block(*block_pointer);
-        remove_block(source_order_buddy);
+        remove_block(*block_pointer, source_order);
+        remove_block(source_order_buddy, source_order);
 
         // insert new higher order blocks into higher order linked list:
         PageDescriptor* new_higher_order_block = (*block_pointer < source_order_buddy) ? *block_pointer : source_order_buddy;
@@ -239,7 +254,7 @@ public:
             alloc_block = split_block(&alloc_block, j);
         }
         // remove alloc_block from free spaces linked list cuz it's already allocated.
-        remove_block(alloc_block);
+        remove_block(alloc_block, order);
 
         return alloc_block;
 	}
