@@ -328,7 +328,7 @@ public:
 
             // decrement order until pgt_ptr aligns with order:
             while (!is_aligned(pgd_ptr, order) and order >= 0) {
-                // block will at worst case be aligned with order=0.
+                // block will at worst be aligned with order=0.
                 order --;
             }
 
@@ -339,23 +339,52 @@ public:
                 order --;
             }
 
-            // mark block as available for allocation:
+            // mark block as available for allocation and insert to free spaces linked lists:
             uint64_t block_size = (1u << order);
             insert_block(pgd_ptr, order);
             pgd_ptr += block_size;  // move pgd_ptr to next block
             remaining_pages_to_insert -= block_size;
         }
-        
     }
 
     /**
      * Marks a range of pages as unavailable for allocation.
      * @param start A pointer to the first page descriptors to be made unavailable.
      * @param count The number of page descriptors to make unavailable.
+     *
+     * Hint: you may assume that the pages being removed are already in the free lists
+     * and that the incoming page descriptor and the number of pages to remove is valid.
+     * You may not assume anything about the alignment of the incoming page descriptor.
      */
     virtual void remove_page_range(PageDescriptor *start, uint64_t count) override
     {
         // TODO: Implement me!
+
+        PageDescriptor* pgd_ptr = start;
+        uint64_t remaining_pages_to_remove = count;
+
+        while (remaining_pages_to_remove > 0) {
+            int order = MAX_ORDER;
+
+            // decrement order until pgd_ptr aligns with order:
+            while (!is_aligned(pgd_ptr, order) and order >= 0) {
+                // block will at worst be aligned with order=0.
+                order--;
+            }
+
+            // check if order block size is too large for count:
+            while ((1u << order) <= remaining_pages_to_remove and order >= 0) {
+                // here, remaining_pages_to_insert will at least be 1 (else will exit outer while loop),
+                // and block will at worst be of size 2^0 = 1.
+                order --;
+            }
+
+            // mark block as unavailable for allocation and remove from free spaces linked lists:
+            uint64_t block_size = (1u << order);
+            remove_block(pgd_ptr, order);
+            pgd_ptr += block_size;  // move pgd_ptr to next block
+            remaining_pages_to_remove -= block_size;
+        }
     }
 
 	/**
