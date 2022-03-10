@@ -321,28 +321,31 @@ public:
         // TODO: Implement me!
 
         PageDescriptor* pgd_ptr = start;
-        int order = MAX_ORDER;
         uint64_t remaining_pages_to_insert = count;
 
-        // TODO: check alignment!
-        
-        do {
-            if (is_aligned(pgd_ptr, order)) {
-                // execute logic only if pgd_ptr is aligned to order, otherwise just increment order to next order and try again
-                uint64_t block_size = (1u << order);
-                uint64_t surplus_pages = remaining_pages_to_insert % block_size;
-                uint64_t block_count = (remaining_pages_to_insert - surplus_pages) / block_size;
-                PageDescriptor* last_block = start + (block_count * block_size);    // is the pgd of the last page before the surplus_pages
-                while (pgd_ptr < last_block) {
-                    insert_block(pgd_ptr, order);
-                    pgd_ptr += block_size;
-                    remaining_pages_to_insert -= block_size;
-                }
+        while (remaining_pages_to_insert > 0) {
+            int order = MAX_ORDER;
+
+            // decrement order until pgt_ptr aligns with order:
+            while (!is_aligned(pgd_ptr, order) and order >= 0) {
+                // block will at worst case be aligned with order=0.
+                order --;
             }
-            order--;    // move to the next block below:
-        } while (remaining_pages_to_insert > 0);
 
+            // check if order block size is too large for count:
+            while ((1u << order) <= remaining_pages_to_insert and order >= 0) {
+                // here, remaining_pages_to_insert will at least be 1 (else will exit outer while loop),
+                // and block will at worst be of size 2^0 = 1.
+                order --;
+            }
 
+            // mark block as available for allocation:
+            uint64_t block_size = (1u << order);
+            insert_block(pgd_ptr, order);
+            pgd_ptr += block_size;  // move pgd_ptr to next block
+            remaining_pages_to_insert -= block_size;
+        }
+        
     }
 
     /**
