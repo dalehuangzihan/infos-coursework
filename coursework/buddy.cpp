@@ -122,33 +122,60 @@ private:
      * @param pgd
      * @param order
      */
-    void insert_block(PageDescriptor* pgd, int order) {
-        PageDescriptor* ll_head_ptr = _free_areas[order];
-        if (ll_head_ptr == NULL) {
-            // linked list is empty
-            ll_head_ptr = pgd;
-            pgd->prev_free = NULL;
-            pgd->next_free = NULL;
+    PageDescriptor** insert_block(PageDescriptor* pgd, int order) {
+//        PageDescriptor* ll_head_ptr = _free_areas[order];
+//        if (ll_head_ptr == NULL) {
+//            // linked list is empty
+//            _free_areas[order] = pgd;
+//            pgd->prev_free = NULL;
+//            pgd->next_free = NULL;
+//
+//        } else {
+//            // find spot in the linked list to insert the block:
+//            PageDescriptor* ll_ptr = ll_head_ptr;
+//            while(ll_ptr->next_free <= pgd and ll_ptr->next_free != NULL) {
+//                // Move ll_ptr along linked list until it reaches node with where next-node has a larger addr than the pgd.
+//                // Linked list is sorted by address value.
+//                ll_ptr = ll_ptr->next_free;
+//            }
+//
+//            // get the pointers for the nodes directly before and directly after our pgd node in the linked list AFTER INSERTION:
+//            PageDescriptor* ll_splice_LHS_ptr = ll_ptr;
+//            PageDescriptor* ll_splice_RHS_ptr = ll_ptr->next_free;
+//
+//            // stitch the splices together with the new block:
+//            ll_splice_LHS_ptr->next_free = pgd;
+//            pgd->prev_free = ll_splice_LHS_ptr;
+//            pgd->next_free = ll_splice_RHS_ptr;
+//            ll_splice_RHS_ptr->prev_free = pgd;
+//        }
 
-        } else {
-            // find spot in the linked list to insert the block:
-            PageDescriptor* ll_ptr = ll_head_ptr;
-            while(ll_ptr->next_free <= pgd and ll_ptr->next_free != NULL) {
-                // Move ll_ptr along linked list until it reaches node with where next-node has a larger addr than the pgd.
-                // Linked list is sorted by address value.
-                ll_ptr = ll_ptr->next_free;
-            }
+        // TODO: REFACTOR
+        // Starting from the _free_area array, find the list in which the page descriptor
+        // should be inserted.
+        PageDescriptor **list = &_free_areas[order];
 
-            // get the pointers for the nodes directly before and directly after our pgd node in the linked list AFTER INSERTION:
-            PageDescriptor* ll_splice_LHS_ptr = ll_ptr;
-            PageDescriptor* ll_splice_RHS_ptr = ll_ptr->next_free;
-
-            // stitch the splices together with the new block:
-            ll_splice_LHS_ptr->next_free = pgd;
-            pgd->prev_free = ll_splice_LHS_ptr;
-            pgd->next_free = ll_splice_RHS_ptr;
-            ll_splice_RHS_ptr->prev_free = pgd;
+        // Iterate whilst there is a list, and whilst the page descriptor pointer is numerically
+        // greater than what the list is pointing to. Stops right before the *list > pgd. New pgd
+        // is to be inserted into the next position in the linked list.
+        while (*list < pgd && *list != NULL) {
+            list = &(*list)->next_free;
         }
+
+        // Insert the page descriptor into the linked list.
+        // get the pointers for the nodes directly before and directly after our pgd node in the linked list AFTER INSERTION:
+        PageDescriptor* ll_splice_LHS_ptr = (*list)->prev_free;
+        PageDescriptor* ll_splice_RHS_ptr = *list;
+
+        // stitch the splices together with the new block:
+        ll_splice_LHS_ptr->next_free = pgd;
+        pgd->prev_free = ll_splice_LHS_ptr;
+        pgd->next_free = ll_splice_RHS_ptr;
+        ll_splice_RHS_ptr->prev_free = pgd;
+
+        // Return the insert point (i.e. list)
+        return list;
+
     }
 
 	/**
@@ -218,10 +245,8 @@ private:
         remove_block(source_order_buddy, source_order);
 
         // insert new higher order blocks into higher order linked list:
-        PageDescriptor* new_higher_order_block = (*block_pointer < source_order_buddy) ? *block_pointer : source_order_buddy;
-        insert_block(new_higher_order_block, source_order + 1);
-
-        return &new_higher_order_block;
+        PageDescriptor* new_higher_order_block = (*block_pointer < source_order_buddy) ? *block_pointer : source_order_buddy; // TODO: debug this
+        return insert_block(new_higher_order_block, source_order + 1);
 	}
 
 public:
@@ -399,8 +424,6 @@ public:
 	{
         // TODO: Implement me!
         syslog.messagef(LogLevel::INFO, "Initialising Buddy Allocator; pd = [%s]; nr_pd = [%s]", page_descriptors, nr_page_descriptors);
-        _pgd_base = page_descriptors;
-        _nr_pgds = nr_page_descriptors;
 
         // initialise pointers in _free_areas to NULL;
         for(auto & _free_area : _free_areas) {
@@ -443,8 +466,6 @@ public:
 
 private:
 	PageDescriptor *_free_areas[MAX_ORDER+1];   // +1 to account also for order=0
-    PageDescriptor *_pgd_base;
-    uint64_t _nr_pgds;
 };
 
 /* --- DO NOT CHANGE ANYTHING BELOW THIS LINE --- */
