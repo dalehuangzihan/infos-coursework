@@ -22,6 +22,13 @@ using namespace infos::util;
 class BuddyPageAllocator : public PageAllocatorAlgorithm
 {
 private:
+
+    static bool is_aligned(PageDescriptor *pgd, int order) {
+        pfn_t pfn = sys.mm().pgalloc().pgd_to_pfn(pgd);
+        // check if page descriptor is aligned within the order block:
+        return (pfn % order == 0);
+    }
+
 	/** Given a page descriptor, and an order, returns the buddy PGD.  The buddy could either be
 	 * to the left or the right of PGD, in the given order.
 	 * @param pgd The page descriptor to find the buddy for.
@@ -39,14 +46,13 @@ private:
         }
         uint64_t order_block_size = 1u << order;
 
-        // obtain page frame number from pointer to page descriptor:
-        pfn_t pfn = sys.mm().pgalloc().pgd_to_pfn(pgd);
         // check if page descriptor is aligned within the order block:
-        if (pfn % order_block_size != 0) {
+        if (!is_aligned(pgd, order)) {
             syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within order!");
             return NULL;
         }
 
+        pfn_t pfn = sys.mm().pgalloc().pgd_to_pfn(pgd);
         uint64_t buddy_pfn;
         if (pfn % (order_block_size << 1)) {
             // is aligned with block of size = order + 1; buddy is the next block of size = order:
@@ -158,8 +164,7 @@ private:
         // TODO: Implement me!
 
         // check that the block pointer is properly aligned:
-        pfn_t pfn = sys.mm().pgalloc().pgd_to_pfn(*block_pointer);
-        if (pfn % source_order != 0) {
+        if (!is_aligned(*block_pointer, source_order)) {
             syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within source order! Split operation aborted.");
             return NULL;
         }
@@ -194,8 +199,7 @@ private:
         // TODO: Implement me!
 
         // check alignment of pgd in source_order:
-        pfn_t pfn = sys.mm().pgalloc().pgd_to_pfn(*block_pointer);
-        if (pfn % source_order != 0) {
+        if (!is_aligned(*block_pointer, source_order)) {
             syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within source order! Merge operation aborted.");
             return NULL;
         }
@@ -269,8 +273,7 @@ public:
         // TODO: Implement me!
 
         // check that pgd is properly aligned in order = 'order':
-        pfn_t pfn = sys.mm().pgalloc().pgd_to_pfn(pgd);
-        if (pfn % order != 0) {
+        if (!is_aligned(pgd, order)) {
             syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within source order! Split operation aborted.");
         }
 
@@ -307,10 +310,39 @@ public:
      * Marks a range of pages as available for allocation.
      * @param start A pointer to the first page descriptors to be made available.
      * @param count The number of page descriptors to make available.
+     *
+     * Hint: You may assume that the pages being inserted are not already in the free lists.
+     * You may also assume that the incoming page descriptor is valid and that the number of
+     * pages to insert is also valid. You may not, however, assume anything about the alignment
+     * of the incoming page descriptor.
      */
     virtual void insert_page_range(PageDescriptor *start, uint64_t count) override
     {
         // TODO: Implement me!
+
+        PageDescriptor* pgd_ptr = start;
+        int order = MAX_ORDER;
+        uint64_t remaining_pages_to_insert = count;
+
+        // TODO: check alignment!
+        
+        do {
+            if (is_aligned(pgd_ptr, order)) {
+                // execute logic only if pgd_ptr is aligned to order, otherwise just increment order to next order and try again
+                uint64_t block_size = (1u << order);
+                uint64_t surplus_pages = remaining_pages_to_insert % block_size;
+                uint64_t block_count = (remaining_pages_to_insert - surplus_pages) / block_size;
+                PageDescriptor* last_block = start + (block_count * block_size);    // is the pgd of the last page before the surplus_pages
+                while (pgd_ptr < last_block) {
+                    insert_block(pgd_ptr, order);
+                    pgd_ptr += block_size;
+                    remaining_pages_to_insert -= block_size;
+                }
+            }
+            order--;    // move to the next block below:
+        } while (remaining_pages_to_insert > 0);
+
+
     }
 
     /**
