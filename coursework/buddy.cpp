@@ -315,6 +315,39 @@ public:
     }
 
     /**
+     * Checks if a given pgd is within the memory block of order = 'order', where
+     * the page block starts from 'block'.
+     * @param block is a pointer to the start of the range of contiguous pages that form the block
+     * @param order is the size (power) of the block
+     * @param pgd is the page under inspection
+     * @return true if the page given by 'pgd' is within the block, else false.
+     */
+    static bool is_page_in_block(PageDescriptor* block, int order, PageDescriptor* pgd) {
+        // TODO: combine with is_page_free
+        uint64_t block_size = 1u << order;
+        PageDescriptor* last_page_in_block = block + block_size;
+        return (pgd >= block) && (pgd < last_page_in_block);
+    }
+
+    /**
+     * Checks whether the given page in the block of size 2^order is free (i.e. contained in
+     * a free spaces linked list).
+     * @param pgd is the pgd under inspection
+     * @param order is the size (power) of the block
+     * @return the list node ptrptr if the pgd can be found, else return nullptr.
+     */
+    PageDescriptor** is_page_free(PageDescriptor* pgd, int order) {
+        PageDescriptor** list_node_ptr_ptr = &_free_areas[order];
+        while (*list_node_ptr_ptr != nullptr) {
+            if (*list_node_ptr_ptr == pgd) {
+                return list_node_ptr_ptr;
+            }
+            list_node_ptr_ptr = &(*list_node_ptr_ptr)->next_free;
+        }
+        return nullptr;
+    }
+
+    /**
      * Marks a range of pages as unavailable for allocation.
      * @param start A pointer to the first page descriptors to be made unavailable.
      * @param count The number of page descriptors to make unavailable.
@@ -326,10 +359,9 @@ public:
     virtual void remove_page_range(PageDescriptor *start, uint64_t count) override
     {
         // TODO: Implement me!
-
+        /*
         PageDescriptor* pgd_ptr = start;
         uint64_t remaining_pages_to_remove = count;
-
         while (remaining_pages_to_remove > 0) {
             int order = MAX_ORDER;
 
@@ -341,7 +373,7 @@ public:
 
             // check if order block size is too large for count:
             while ((1u << order) > remaining_pages_to_remove and order >= 0) {
-                // here, remaining_pages_to_insert will at least be 1 (else will exit outer while loop),
+                // here, remaining_pages_to_remove will at least be 1 (else will exit outer while loop),
                 // and block will at worst be of size 2^0 = 1.
                 order --;
             }
@@ -355,8 +387,90 @@ public:
             remaining_pages_to_remove -= block_size;
 
         }
-        assert(false);
-        dump_state();
+        */
+
+        PageDescriptor* pgd_ptr = start;
+        uint64_t remaining_pages_to_remove = count;
+        while (remaining_pages_to_remove > 0) {
+            int order = MAX_ORDER;
+            PageDescriptor* curr_block = nullptr;
+
+            // decrement order until pgt_ptr aligns with an order:
+            while (!is_aligned(pgd_ptr, order) and order >= 0) {
+                // block will at worst be aligned with order=0.
+                order --;
+            }
+            // check if order block size is too large for count:
+            while ((1u << order) > remaining_pages_to_remove and order >= 0) {
+                // here, remaining_pages_to_remove will at least be 1 (else will exit outer while loop),
+                // and block will at worst be of size 2^0 = 1.
+                order --;
+            }
+
+            bool is_page_found = false;
+            bool is_found_page_free = false;
+            while (order >= 0) {
+                // search through free areas to find the current pgd_ptr in one of the free memory blocks:
+                curr_block = _free_areas[order];
+                while (curr_block != nullptr) { // ignore empty linked lists
+                    if (is_page_in_block(curr_block, order, pgd_ptr)) {
+                        // page is found within block!
+                        is_page_found = true;
+                        break;
+                    } else {
+                        // move to check (in the next cycle) the next link in the linked list of free mem blocks for this order
+                        curr_block = curr_block->next_free;
+                    }
+                }
+                if (curr_block == nullptr) {
+                    // can't find the current pgd_ptr in the current order's linked lists;
+                    // redo search (in the next cycle) for the order below:
+                    order--;
+                } else if (order == 0) {
+                    // TODO: this logic is for inserting a SINGLE page. Modify to insert a range of pages!
+                    // here, order == 0 and we've found the block containing the current pgd_ptr:
+                    PageDescriptor **list_node_ptr_ptr = is_page_free(pgd_ptr, 0);
+                    if (list_node_ptr_ptr != nullptr) {
+                        // the page we found is free
+                        is_found_page_free = true;
+                    } else {
+                        // page is found but not free
+                        syslog.messagef(LogLevel::ERROR, "Page [%d] is found but not free!", sys.mm().pgalloc().pgd_to_pfn(pgd_ptr));
+                        break;
+                    }
+                    // check if the free page at list_node_ptr_ptr is the same as the pgd_ptr that we've requested:
+                    assert(*list_node_ptr_ptr == pgd_ptr);
+                    remove_block(*list_node_ptr_ptr,0);
+                    break;
+                } else {
+                    // here, order > 0 and we've found the block containing the current pgd_ptr:
+                    PageDescriptor* lhs_block = split_block(&curr_block, order);
+                    // if lhs block contains the page pgd_ptr:
+                    if (is_page_in_block(lhs_block, order - 1, pgd_ptr)) {
+                        // set lhs block to the current block under inspection:
+                        curr_block = lhs_block;
+                    } else {
+                        PageDescriptor* rhs_block = buddy_of(lhs_block, order - 1);
+                        // if the pgd_ptr is in the size=order block but not in the new LHS size=order-1 block,
+                        // it must be in the new RHS size=order-1 block:
+                        assert(is_page_in_block(rhs_block, order - 1, pgd_ptr));
+                        curr_block = rhs_block;
+                    }
+                    // continue splitting until we get to order = 0:
+                    order--;
+                }
+            }
+            if (is_page_found && is_found_page_free) {
+                // TODO ?
+                // carry on to the next page to remove.
+            } else {
+                syslog.messagef(LogLevel::ERROR, "Cannot find page [%d] to reserve! Aborting remove_page_range process.", sys.mm().pgalloc().pgd_to_pfn(pgd_ptr));
+            }
+
+        }
+
+//        assert(false);
+//        dump_state();
 
 
     }
