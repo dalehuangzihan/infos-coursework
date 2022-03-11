@@ -71,35 +71,50 @@ private:
      */
     void remove_block(PageDescriptor* pgd, int order) {
 
-        PageDescriptor *ll_head_ptr = _free_areas[order];
-        if (ll_head_ptr == NULL) {
-            syslog.messagef(LogLevel::ERROR, "No free blocks exist for order [%s]; block not removed.", order);
-        } else if (ll_head_ptr == pgd) {
-            // the pgd to be removed is the head of the linked list
-            _free_areas[order] = pgd->next_free;
-            (pgd->next_free)->prev_free = NULL;
-            pgd->next_free = NULL;
+//        PageDescriptor *ll_head_ptr = _free_areas[order];
+//        if (ll_head_ptr == NULL) {
+//            syslog.messagef(LogLevel::ERROR, "No free blocks exist for order [%s]; block not removed.", order);
+//        } else if (ll_head_ptr == pgd) {
+//            // the pgd to be removed is the head of the linked list
+//            _free_areas[order] = pgd->next_free;
+//            (pgd->next_free)->prev_free = NULL;
+//            pgd->next_free = NULL;
+//
+//        } else {
+//            // search for pgd in the order's free space linked list:
+//            PageDescriptor* ll_ptr = ll_head_ptr;
+//            while(ll_ptr != pgd and ll_ptr->next_free != NULL) {
+//                // stops when we reach the pgd node or the tail node of the linked list
+//                ll_ptr = ll_ptr->next_free;
+//            }
+//
+//            // get the pointers for the nodes directly before and directly after our pgd node in the linked list:
+//            PageDescriptor* ll_splice_LHS_ptr = pgd->prev_free;
+//            PageDescriptor* ll_splice_RHS_ptr = pgd->next_free;
+//
+//            // stitch the splice nodes together
+//            ll_splice_LHS_ptr->next_free = ll_splice_RHS_ptr;
+//            if (ll_splice_RHS_ptr != NULL) ll_splice_RHS_ptr->prev_free = ll_splice_LHS_ptr;    // check if we're at the tail node of the linked list
+//
+//            // clean up the next_free and prev_free pointers in pgd:
+//            pgd->prev_free = NULL;
+//            pgd->next_free = NULL;
+//        }
 
-        } else {
-            // search for pgd in the order's free space linked list:
-            PageDescriptor* ll_ptr = ll_head_ptr;
-            while(ll_ptr != pgd and ll_ptr->next_free != NULL) {
-                // stops when we reach the pgd node or the tail node of the linked list
-                ll_ptr = ll_ptr->next_free;
-            }
-
-            // get the pointers for the nodes directly before and directly after our pgd node in the linked list:
-            PageDescriptor* ll_splice_LHS_ptr = pgd->prev_free;
-            PageDescriptor* ll_splice_RHS_ptr = pgd->next_free;
-
-            // stitch the splice nodes together
-            ll_splice_LHS_ptr->next_free = ll_splice_RHS_ptr;
-            if (ll_splice_RHS_ptr != NULL) ll_splice_RHS_ptr->prev_free = ll_splice_LHS_ptr;    // check if we're at the tail node of the linked list
-
-            // clean up the next_free and prev_free pointers in pgd:
-            pgd->prev_free = NULL;
-            pgd->next_free = NULL;
+        // TODO: refactor.
+        // Starting from the _free_area array, iterate until the block has been located in the linked-list.
+        PageDescriptor **list = &_free_areas[order];
+        while (*list < pgd and *list != NULL) {
+            list = &(*list)->next_free;
         }
+
+        // Make sure the block actually exists.  Panic the system if it does not.
+        assert(*list == pgd);
+
+        // Remove the block from the free list.
+        *list = pgd->next_free;
+        pgd->next_free = NULL;
+
 
 //        // remove node from linked list (re-link linked list):
 //        if (pgd->prev_free != NULL) {
@@ -150,28 +165,47 @@ private:
 //            ll_splice_RHS_ptr->prev_free = pgd;
 //        }
 
-        // TODO: REFACTOR
+//        // TODO: Method with prev_free (fix):
+//        // Starting from the _free_area array, find the list in which the page descriptor
+//        // should be inserted.
+//        PageDescriptor **list = &_free_areas[order];
+//
+//        // Iterate whilst there is a list, and whilst the page descriptor pointer is numerically
+//        // greater than what the list is pointing to. Stops right before the *list > pgd. New pgd
+//        // is to be inserted into the next position in the linked list.
+//        while (*list < pgd && *list != NULL) {
+//            list = &(*list)->next_free;
+//        }
+//
+//        // Insert the page descriptor into the linked list.
+//        // get the pointers for the nodes directly before and directly after our pgd node in the linked list AFTER INSERTION:
+//        PageDescriptor* ll_splice_LHS_ptr = (*list)->prev_free;
+//        PageDescriptor* ll_splice_RHS_ptr = *list;
+//
+//        // stitch the splices together with the new block:
+//        ll_splice_LHS_ptr->next_free = pgd;
+//        pgd->prev_free = ll_splice_LHS_ptr;
+//        pgd->next_free = ll_splice_RHS_ptr;
+//        ll_splice_RHS_ptr->prev_free = pgd;
+//
+//        // Return the insert point (i.e. list)
+//        return list;
+
+
+        // TODO: refactor!
         // Starting from the _free_area array, find the list in which the page descriptor
         // should be inserted.
         PageDescriptor **list = &_free_areas[order];
 
         // Iterate whilst there is a list, and whilst the page descriptor pointer is numerically
-        // greater than what the list is pointing to. Stops right before the *list > pgd. New pgd
-        // is to be inserted into the next position in the linked list.
-        while (*list < pgd && *list != NULL) {
+        // greater than what the list is pointing to.
+        while (*list < pgd and *list != NULL) {
             list = &(*list)->next_free;
         }
 
         // Insert the page descriptor into the linked list.
-        // get the pointers for the nodes directly before and directly after our pgd node in the linked list AFTER INSERTION:
-        PageDescriptor* ll_splice_LHS_ptr = (*list)->prev_free;
-        PageDescriptor* ll_splice_RHS_ptr = *list;
-
-        // stitch the splices together with the new block:
-        ll_splice_LHS_ptr->next_free = pgd;
-        pgd->prev_free = ll_splice_LHS_ptr;
-        pgd->next_free = ll_splice_RHS_ptr;
-        ll_splice_RHS_ptr->prev_free = pgd;
+        pgd->next_free = *list;
+        *list = pgd;
 
         // Return the insert point (i.e. list)
         return list;
@@ -246,6 +280,7 @@ private:
 
         // insert new higher order blocks into higher order linked list:
         PageDescriptor* new_higher_order_block = (*block_pointer < source_order_buddy) ? *block_pointer : source_order_buddy; // TODO: debug this
+
         return insert_block(new_higher_order_block, source_order + 1);
 	}
 
@@ -317,7 +352,7 @@ public:
                 ll_ptr = ll_ptr->next_free;
 
             } else if (ll_ptr == NULL) {
-                syslog.messagef(LogLevel::INFO, "Buddy of block pgd=%s in order [%s] is not free; not merging blocks.", pgd, order);
+//                syslog.messagef(LogLevel::INFO, "Buddy of block pgd=%s in order [%s] is not free; not merging blocks.", pgd, order);
                 break;
 
             } else {
@@ -329,6 +364,7 @@ public:
                 ll_ptr = _free_areas[curr_order];                                   // reassign to point to head of next linked list
             }
         }
+
     }
 
     /**
@@ -358,11 +394,12 @@ public:
             }
 
             // check if order block size is too large for count:
-            while ((1u << order) <= remaining_pages_to_insert and order >= 0) {
+            while ((1u << order) > remaining_pages_to_insert and order >= 0) {
                 // here, remaining_pages_to_insert will at least be 1 (else will exit outer while loop),
                 // and block will at worst be of size 2^0 = 1.
                 order --;
             }
+//            syslog.messagef(LogLevel::ERROR, "remaining_pages = %d; order = %d", remaining_pages_to_insert, order);
 
             // mark block as available for allocation and insert to free spaces linked lists:
             uint64_t block_size = (1u << order);
@@ -398,7 +435,7 @@ public:
             }
 
             // check if order block size is too large for count:
-            while ((1u << order) <= remaining_pages_to_remove and order >= 0) {
+            while ((1u << order) > remaining_pages_to_remove and order >= 0) {
                 // here, remaining_pages_to_insert will at least be 1 (else will exit outer while loop),
                 // and block will at worst be of size 2^0 = 1.
                 order --;
@@ -409,7 +446,11 @@ public:
             remove_block(pgd_ptr, order);
             pgd_ptr += block_size;  // move pgd_ptr to next block
             remaining_pages_to_remove -= block_size;
+            syslog.messagef(LogLevel::ERROR, "remaining_pages = %d; order = %d", remaining_pages_to_remove, order);
         }
+        assert(false);
+
+
     }
 
 	/**
@@ -422,11 +463,11 @@ public:
 	 */
 	bool init(PageDescriptor *page_descriptors, uint64_t nr_page_descriptors) override
 	{
+
         // TODO: Implement me!
-        syslog.messagef(LogLevel::INFO, "Initialising Buddy Allocator; pd = [%s]; nr_pd = [%s]", page_descriptors, nr_page_descriptors);
 
         // initialise pointers in _free_areas to NULL;
-        for(auto & _free_area : _free_areas) {
+        for (auto & _free_area : _free_areas) {
             _free_area = NULL;
         }
 
