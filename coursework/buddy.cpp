@@ -51,18 +51,18 @@ private:
             syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within order!");
             return NULL;
         }
-        syslog.messagef(LogLevel::IMPORTANT, "BUDDY_OF original pfn=%d; order=%d", sys.mm().pgalloc().pgd_to_pfn(pgd), order);
+//        syslog.messagef(LogLevel::IMPORTANT, "BUDDY_OF original pfn=%d; order=%d", sys.mm().pgalloc().pgd_to_pfn(pgd), order);
 
         pfn_t pfn = sys.mm().pgalloc().pgd_to_pfn(pgd);
         if (is_aligned(pgd, order + 1)) {
             // is aligned with block of size = order + 1; buddy is the next block of size = order:
             uint64_t buddy_pfn = pfn + order_block_size;
-            syslog.messagef(LogLevel::IMPORTANT, "BUDDY_OF RHS pfn=%d; order=%d", buddy_pfn, order);
+//            syslog.messagef(LogLevel::IMPORTANT, "BUDDY_OF RHS pfn=%d; order=%d", buddy_pfn, order);
             return sys.mm().pgalloc().pfn_to_pgd(buddy_pfn);;
         } else {
             // buddy is the previous block of size = order:
             uint64_t buddy_pfn = pfn - order_block_size;
-            syslog.messagef(LogLevel::IMPORTANT, "BUDDY_OF LHS pfn=%d; order=%d", buddy_pfn, order);
+//            syslog.messagef(LogLevel::IMPORTANT, "BUDDY_OF LHS pfn=%d; order=%d", buddy_pfn, order);
             return sys.mm().pgalloc().pfn_to_pgd(buddy_pfn);
         }
 
@@ -74,7 +74,7 @@ private:
      */
     void remove_block(PageDescriptor* pgd, int order) {
 
-        syslog.messagef(LogLevel::INFO, "Order (remove) = %d", order);
+//        syslog.messagef(LogLevel::IMPORTANT, "Remove block pgd[%x], order[%d]", sys.mm().pgalloc().pgd_to_pfn(pgd), order);
 
         // TODO: refactor.
         // Starting from the _free_area array, iterate until the block has been located in the linked-list.
@@ -84,7 +84,9 @@ private:
         }
 
         // Make sure the block actually exists.  Panic the system if it does not.
-        syslog.messagef(LogLevel::ERROR, "remove: pfn = %d, order = %d", sys.mm().pgalloc().pgd_to_pfn(pgd), order);
+//        if (*list != pgd) {
+//            syslog.messagef(LogLevel::IMPORTANT, "*list [%x] != pfn [%x]", sys.mm().pgalloc().pgd_to_pfn(*list), sys.mm().pgalloc().pgd_to_pfn(pgd));
+//        }
         assert(*list == pgd);
 
         // Remove the block from the free list.
@@ -147,11 +149,11 @@ private:
         // Find the buddy of the given *block_pointer in the lower order
         PageDescriptor *new_block_LHS = *block_pointer;
         PageDescriptor *new_block_RHS = buddy_of(new_block_LHS, source_order - 1);    // should give the order=source_order-1 block on the RHS of new_block_LHS
-        syslog.messagef(LogLevel::IMPORTANT, "SPLIT ORDER TOP = %d", source_order);
+//        syslog.messagef(LogLevel::IMPORTANT, "SPLIT ORDER TOP = %d", source_order);
         assert(new_block_LHS < new_block_RHS);
 
         // Remove source_order block from the source order free mem linked list:
-        syslog.messagef(LogLevel::INFO, "Order (split) = %d", source_order);
+//        syslog.messagef(LogLevel::INFO, "Order (split) = %d", source_order);
         remove_block(*block_pointer, source_order);
 
         // Insert new lower order blocks to the lower order free mem linked list:
@@ -243,10 +245,9 @@ public:
     {
         // TODO: Implement me!
 
+        assert(order >= 0 and order <= MAX_ORDER);
         // check that pgd is properly aligned in order = 'order':
-        if (!is_aligned(pgd, order)) {
-            syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within source order! Split operation aborted.");
-        }
+        assert(is_aligned(pgd, order));
 
         // insert block back into the free spaces linked list of order = 'order':
         insert_block(pgd, order);
@@ -254,26 +255,31 @@ public:
         // Check if the buddy in the current order is free; if so, merge and move to order + 1 and perform the
         // same checks and operations, and so on... until we reach MAX_ORDER
         PageDescriptor* buddy_ptr = buddy_of(pgd, order);
-        PageDescriptor* ll_ptr = _free_areas[order];    // initially points to the head of linked list
-        int curr_order = order;
-        while (curr_order <= MAX_ORDER) {
+//        PageDescriptor* ll_ptr = _free_areas[order];    // initially points to the head of linked list
+//        int curr_order = order;
+//        while (curr_order <= MAX_ORDER) {
             // move down linked list to check if it contains the buddy of the given pgd:
-            if (ll_ptr != buddy_ptr and ll_ptr != NULL) {
-                // do not increment curr_order here; works like a while loop
-                ll_ptr = ll_ptr->next_free;
-
-            } else if (ll_ptr == NULL) {
-                syslog.messagef(LogLevel::INFO, "Buddy of block pgd=%d in order [%d] is not free; not merging blocks.", pgd, order);
-                break;
-
-            } else {
-                // has found buddy in free space linked list of order = 'order'
-                PageDescriptor** merged_block_ptr = merge_block(&pgd, order);
-                // prep parameters to repeat same checks but for next order up:
-                curr_order++;                                                       // increment counter to current_order + 1;
-                buddy_ptr = buddy_of(*merged_block_ptr, curr_order);     // reassign to find new buddy
-                ll_ptr = _free_areas[curr_order];                                   // reassign to point to head of next linked list
-            }
+//            if (ll_ptr != buddy_ptr and ll_ptr != NULL) {
+//                // do not increment curr_order here; works like a while loop
+//                ll_ptr = ll_ptr->next_free;
+//
+//            } else if (ll_ptr == NULL) {
+////                syslog.messagef(LogLevel::INFO, "Buddy of block pgd=%d in order [%d] is not free; not merging blocks.", pgd, order);
+//                break;
+//
+//            } else {
+//                // has found buddy in free space linked list of order = 'order'
+//                PageDescriptor** merged_block_ptr = merge_block(&pgd, order);
+//                // prep parameters to repeat same checks but for next order up:
+//                curr_order++;                                                       // increment counter to current_order + 1;
+//                buddy_ptr = buddy_of(*merged_block_ptr, curr_order);     // reassign to find new buddy
+//                ll_ptr = _free_areas[curr_order];                                   // reassign to point to head of next linked list
+//            }
+//        }
+        while (is_page_free(buddy_ptr, order) != nullptr and order < MAX_ORDER) {
+            pgd = *merge_block(&pgd, order);
+            order++;
+            buddy_ptr = buddy_of(pgd, order);
         }
 
     }
@@ -318,7 +324,7 @@ public:
             pgd_ptr += block_size;  // move pgd_ptr to next block
             remaining_pages_to_insert -= block_size;
         }
-        dump_state();
+//        dump_state();
     }
 
     /**
@@ -354,83 +360,6 @@ public:
         return nullptr;
     }
 
-    /**
-     * Reserves a single page such that it cannot be allocated.
-     * @param pgd is the page descriptor of the page to be reserved.
-     * @return a bool indicating whether the page has been successfully removed.
-     */
-    bool remove_page(PageDescriptor *pgd) {
-        syslog.messagef(LogLevel::ERROR, "RESERVE_PAGE(pfn: %d)", sys.mm().pgalloc().pgd_to_pfn(pgd));
-
-        auto order = MAX_ORDER;
-        PageDescriptor* current_block = nullptr;
-
-        // For each order, starting from largest
-        while (order >= 0)
-        {
-            // If the order is 0, and we have found the block, search through the block
-            if (order == 0 && current_block)
-            {
-                auto slot = is_page_free(pgd, 0);
-                if (slot == nullptr) {
-                    syslog.messagef(LogLevel::DEBUG, "RESERVE_PAGE returning false (no free page in order 0)");
-                    return false;
-                }
-
-                // The page at the slot should be equal to the pgd we're finding
-                assert(*slot == pgd);
-
-                syslog.messagef(LogLevel::ERROR, "RESERVE_PAGE returning true (removing %p)", *slot);
-                remove_block(*slot, 0);
-                return true;
-            }
-
-            // If the block containing the page has been found...
-            if (current_block != nullptr) {
-                auto left = split_block(&current_block, order);
-                auto new_order = order - 1;
-
-                // If the LHS-block contains the page...
-                if (is_page_in_block(left, new_order, pgd)) {
-                    // ...update the current block!
-                    current_block = left;
-                } else {
-                    auto right = buddy_of(left, new_order);
-
-                    // The RHS must contain the block
-                    assert(is_page_in_block(right, new_order, pgd));
-
-                    current_block = right;
-                }
-
-                // Split further down, on the next loop.
-                order = new_order;
-                continue;
-            }
-
-            // Search through the free areas, starting off with the first free area of this order
-            current_block = _free_areas[order];
-            while (current_block != nullptr) {
-
-                // If pgd is between (inclusive) the current block and the last page of that block...
-                if (is_page_in_block(current_block, order, pgd)) {
-                    // ... stop searching, we've discovered the block!
-                    break;
-                }
-
-                current_block = current_block->next_free;
-            }
-
-            // Search lower down if the block was not found.
-            if (current_block == nullptr) {
-                order--;
-            }
-        }
-
-        // Couldn't find, so we're done!
-        syslog.messagef(LogLevel::ERROR, "RESERVE_PAGE returning false");
-        return false;
-    }
 
     /**
      * Marks a range of pages as unavailable for allocation.
@@ -445,14 +374,7 @@ public:
     {
         // TODO: Implement me!
 
-        syslog.messagef(LogLevel::INFO, "count = %d", count);
-
-//        for (uint64_t i = 0; i < count; i ++) {
-//            PageDescriptor* pgd_ptr = start + i;
-//            remove_page(pgd_ptr);
-//        }
-
-        int debug_iter_limit = 20;
+//        syslog.messagef(LogLevel::INFO, "count = %d", count);
 
         PageDescriptor* pgd_ptr = start;
         uint64_t remaining_pages_to_remove = count;
@@ -460,15 +382,15 @@ public:
             int order = MAX_ORDER;
             PageDescriptor* curr_block = nullptr;
 
-            // decrement order until pgt_ptr aligns with an order:
-            while (!is_aligned(pgd_ptr, order) and order >= 0) {
-                // block will at worst be aligned with order=0.
-                order --;
-            }
+//            // decrement order until pgt_ptr aligns with an order:
+//            while (!is_aligned(pgd_ptr, order) and order >= 0) {
+//                // block will at worst be aligned with order=0.
+//                order --;
+//            }
 
             bool is_pages_found = false;
             bool is_pages_removed = false;
-            while (order >= 0 && debug_iter_limit > 0) {
+            while (order >= 0) {
                 // search through free areas (size=order) to find the current pgd_ptr in one of the free memory blocks:
                 curr_block = _free_areas[order];
                 while (curr_block != nullptr) { // ignore empty linked lists
@@ -481,29 +403,14 @@ public:
                         curr_block = curr_block->next_free;
                     }
                 }
-                syslog.messagef(LogLevel::ERROR, "Order1 = %d", order);
-                syslog.messagef(LogLevel::IMPORTANT, "curr_block = %d", sys.mm().pgalloc().pgd_to_pfn(curr_block));
 
-                uint64_t block_size = 1u << order;
+                uint64_t block_size = (1u << order);
                 if (curr_block == nullptr) {
                     // search smaller order if pgd not found:
                     order --;
-                } else if (order == 0) {
-                    PageDescriptor** free_pgd_ptr_ptr = is_page_free(pgd_ptr, order);
-                    assert(*free_pgd_ptr_ptr != nullptr);
-                    assert(*free_pgd_ptr_ptr == pgd_ptr);
-                    syslog.messagef(LogLevel::ERROR, "Order2 = %d", order);
-                    remove_block(*free_pgd_ptr_ptr,order);
-                    pgd_ptr += block_size;
-                    remaining_pages_to_remove -= block_size;
-                    syslog.messagef(LogLevel::INFO, "remaining pages to remove = %d", remaining_pages_to_remove);
-                    is_pages_removed = true;
-                    break;
-                } else {
+                } else if (block_size > remaining_pages_to_remove) {
                     // will need to split the block to get to the appropriate block size to remove!
-                    syslog.messagef(LogLevel::IMPORTANT, "Order top = %d", order);
                     PageDescriptor* lhs_block = split_block(&curr_block, order);
-                    syslog.messagef(LogLevel::IMPORTANT, "Order top2 = %d", order);
                     // if lhs block contains the page pgd_ptr:
                     if (is_page_in_block(lhs_block, order - 1, pgd_ptr)) {
                         // set lhs block to the current block under inspection:
@@ -517,16 +424,23 @@ public:
                     }
                     // continue splitting until we get to order = 0:
                     order--;
+                } else {
+                    PageDescriptor **free_pgd_ptr_ptr = is_page_free(pgd_ptr, order);
+                    assert(*free_pgd_ptr_ptr != nullptr);
+                    assert(*free_pgd_ptr_ptr == pgd_ptr);
+                    remove_block(*free_pgd_ptr_ptr, order);
+                    pgd_ptr += block_size;
+                    remaining_pages_to_remove -= block_size;
+                    is_pages_removed = true;
+                    break;
                 }
-                syslog.messagef(LogLevel::ERROR, "Order iter = %d", order);
-                debug_iter_limit--;
             }
-            syslog.messagef(LogLevel::ERROR, "Order iter out = %d", order);
-            if (!(is_pages_found and is_pages_removed)) syslog.messagef(LogLevel::ERROR, "Pfn %s is not found in free spaces linked list!");
+            if (!is_pages_found) syslog.messagef(LogLevel::ERROR, "Pfn %d is not found in free spaces linked list!", sys.mm().pgalloc().pgd_to_pfn(pgd_ptr));
+            if (!is_pages_removed) syslog.messagef(LogLevel::ERROR, "Pfn %d is not removed", sys.mm().pgalloc().pgd_to_pfn(pgd_ptr));
+            if (!is_pages_removed or !is_pages_found) {
+                break;
+            }
         }
-
-        dump_state();
-
     }
 
 	/**
