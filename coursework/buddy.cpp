@@ -55,7 +55,7 @@ private:
      * for our memory allocator
      * @param order
      */
-    static void ensure_valid_order_input(uint64_t order) {
+    static void enforce_valid_order_input(uint64_t order) {
         assert(0 <= order and order <= MAX_ORDER);
     }
 
@@ -65,7 +65,7 @@ private:
      * the first and last page descriptors in available memory)
      * @param pgd
      */
-    void ensure_valid_pgd_input(PageDescriptor* pgd) {
+    void enforce_valid_pgd_input(PageDescriptor* pgd) {
         assert(pgd_base <= pgd and pgd <= pgd_last);
     }
 
@@ -105,8 +105,8 @@ private:
      * @return the list node ptrptr if the pgd can be found, else return NULL.
      */
     PageDescriptor** is_page_free(PageDescriptor* pgd, int order) {
-        ensure_valid_order_input(order);
-        ensure_valid_pgd_input(pgd);
+        enforce_valid_order_input(order);
+        enforce_valid_pgd_input(pgd);
         PageDescriptor** list_node_ptr_ptr = &_free_areas[order];
         // iterate through the order's free spaces linked list until we find the link that is = pgd:
         while (*list_node_ptr_ptr != NULL) {
@@ -126,8 +126,8 @@ private:
 	 */
 	PageDescriptor *buddy_of(PageDescriptor *pgd, int order)
 	{
-        ensure_valid_order_input(order);
-        ensure_valid_pgd_input(pgd);
+        enforce_valid_order_input(order);
+        enforce_valid_pgd_input(pgd);
         uint64_t order_block_size = get_block_size(order);
         // check if page descriptor is aligned within the order block:
         if (!is_aligned(pgd, order)) {
@@ -152,8 +152,8 @@ private:
      * @param order
      */
     PageDescriptor** insert_block(PageDescriptor* pgd, int order) {
-        ensure_valid_order_input(order);
-        ensure_valid_pgd_input(pgd);
+        enforce_valid_order_input(order);
+        enforce_valid_pgd_input(pgd);
         // TODO: refactor!
         // Find the ll_ptr_ptr to the free_areas array in which the page descriptor should be inserted.
         PageDescriptor **ll_ptr_ptr = &_free_areas[order];
@@ -176,8 +176,8 @@ private:
      * @param order is the size of the block
      */
     void remove_block(PageDescriptor* pgd, int order) {
-        ensure_valid_order_input(order);
-        ensure_valid_pgd_input(pgd);
+        enforce_valid_order_input(order);
+        enforce_valid_pgd_input(pgd);
         // TODO: refactor.
         // Starting from the _free_area array, iterate until the block has been located in the ll_ptr_ptr.
         PageDescriptor **ll_ptr_ptr = &_free_areas[order];
@@ -201,8 +201,8 @@ private:
 	 */
 	PageDescriptor *split_block(PageDescriptor **block_pointer, int source_order)
 	{
-        ensure_valid_order_input(source_order);
-        ensure_valid_pgd_input(*block_pointer);
+        enforce_valid_order_input(source_order);
+        enforce_valid_pgd_input(*block_pointer);
         // check that the block pointer is properly aligned:
         if (!is_aligned(*block_pointer, source_order)) {
             syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within source order! Split operation aborted.");
@@ -233,8 +233,8 @@ private:
 	 */
 	PageDescriptor **merge_block(PageDescriptor **block_pointer, int source_order)
 	{
-        ensure_valid_order_input(source_order);
-        ensure_valid_pgd_input(*block_pointer);
+        enforce_valid_order_input(source_order);
+        enforce_valid_pgd_input(*block_pointer);
         // check alignment of pgd in source_order:
         if (!is_aligned(*block_pointer, source_order)) {
             syslog.message(LogLevel::ERROR, "Page descriptor is not aligned within source order! Merge operation aborted.");
@@ -264,7 +264,7 @@ public:
 	 */
 	PageDescriptor *allocate_pages(int order) override
 	{
-        ensure_valid_order_input(order);
+        enforce_valid_order_input(order);
         // find smallest order which is >= 'order' that has an empty block for allocation:
         bool has_found_free_space = false;
         int alloc_starting_order = order;
@@ -298,8 +298,8 @@ public:
 	 */
     void free_pages(PageDescriptor *pgd, int order) override
     {
-        ensure_valid_order_input(order);
-        ensure_valid_pgd_input(pgd);
+        enforce_valid_order_input(order);
+        enforce_valid_pgd_input(pgd);
         // check that pgd is properly aligned in order = 'order':
         assert(is_aligned(pgd, order));
         // insert block back into the free spaces linked list of order = 'order':
