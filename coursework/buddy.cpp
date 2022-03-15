@@ -91,8 +91,7 @@ private:
      * @return true if the page given by 'pgd' is within the block, else false.
      */
     static bool is_page_in_block(PageDescriptor* block, int order, PageDescriptor* pgd) {
-        // TODO: combine with is_page_free
-        uint64_t block_size = 1u << order;
+        uint64_t block_size = get_block_size(order);
         PageDescriptor* last_page_in_block = block + block_size;
         return (pgd >= block) && (pgd < last_page_in_block);
     }
@@ -154,7 +153,6 @@ private:
     PageDescriptor** insert_block(PageDescriptor* pgd, int order) {
         enforce_valid_order_input(order);
         enforce_valid_pgd_input(pgd);
-        // TODO: refactor!
         // Find the ll_ptr_ptr to the free_areas array in which the page descriptor should be inserted.
         PageDescriptor **ll_ptr_ptr = &_free_areas[order];
         // Iterate through the linked list to get to the point where prev_free pgd block is the
@@ -178,13 +176,12 @@ private:
     void remove_block(PageDescriptor* pgd, int order) {
         enforce_valid_order_input(order);
         enforce_valid_pgd_input(pgd);
-        // TODO: refactor.
         // Starting from the _free_area array, iterate until the block has been located in the ll_ptr_ptr.
         PageDescriptor **ll_ptr_ptr = &_free_areas[order];
         while (*ll_ptr_ptr < pgd and *ll_ptr_ptr != NULL) {
             ll_ptr_ptr = &(*ll_ptr_ptr)->next_free;
         }
-        // Make sure the block actually exists:
+        // Make sure the block actually exists in linked list before attempting to remove:
         assert(*ll_ptr_ptr == pgd);
         // Remove the block from the free ll_ptr_ptr.
         *ll_ptr_ptr = pgd->next_free;
@@ -340,7 +337,7 @@ public:
                 order --;
             }
             // check if order block size is too large for count:
-            while ((1u << order) > remaining_pages_to_insert and order >= 0) {
+            while (get_block_size(order) > remaining_pages_to_insert and order >= 0) {
                 // here, remaining_pages_to_insert will at least be 1 (else will exit outer while loop),
                 // and block will at worst be of size 2^0 = 1.
                 order --;
