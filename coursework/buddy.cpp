@@ -28,7 +28,7 @@ private:
      * @param order is the size of the memory block
      * @return 2^order;
      */
-    static uint64_t get_block_size(uint64_t order) {
+    uint64_t get_block_size(uint64_t order) {
         return 1u << order;
     }
 
@@ -37,7 +37,7 @@ private:
      * @param pgd is the pgd we wish to convert to pfn
      * @return the pfn of the given pgd
      */
-    static pfn_t pgd_to_pfn(PageDescriptor* pgd) {
+    pfn_t pgd_to_pfn(PageDescriptor* pgd) {
         return sys.mm().pgalloc().pgd_to_pfn(pgd);
     }
 
@@ -46,7 +46,7 @@ private:
      * @param pfn is the pfn we wish to convert to pgd
      * @return the pgd of the given pfn
      */
-    static PageDescriptor* pfn_to_pgd(pfn_t pfn) {
+    PageDescriptor* pfn_to_pgd(pfn_t pfn) {
         return sys.mm().pgalloc().pfn_to_pgd(pfn);
     }
 
@@ -55,7 +55,7 @@ private:
      * for our memory allocator
      * @param order
      */
-    static void enforce_valid_order_input(uint64_t order) {
+    void enforce_valid_order_input(uint64_t order) {
         assert(0 <= order and order <= MAX_ORDER);
     }
 
@@ -75,7 +75,7 @@ private:
      * @param order is the size of the block that we wish to check alignment against
      * @return true if the pgd is aligned within block of size=order, else false
      */
-    static bool is_aligned(PageDescriptor *pgd, int order) {
+    bool is_aligned(PageDescriptor *pgd, int order) {
         pfn_t pfn = pgd_to_pfn(pgd);
         // check if page descriptor is aligned within the order block:
         return (pfn % get_block_size(order) == 0);
@@ -90,7 +90,7 @@ private:
      * @param pgd is the page under inspection
      * @return true if the page given by 'pgd' is within the block, else false.
      */
-    static bool is_page_in_block(PageDescriptor* block, int order, PageDescriptor* pgd) {
+    bool is_page_in_block(PageDescriptor* block, int order, PageDescriptor* pgd) {
         uint64_t block_size = get_block_size(order);
         PageDescriptor* last_page_in_block = block + block_size;
         return (pgd >= block) && (pgd < last_page_in_block);
@@ -275,6 +275,7 @@ public:
         }
         if (!has_found_free_space) {
             syslog.messagef(LogLevel::FATAL, "Could not find free memory space; block of order size [%d] not allocated", order);
+            return NULL;
         }
         // Get free block at the START of the linked list for chosen order:
         // (we choose to allocate from the head of the linked list cuz it's easier)
